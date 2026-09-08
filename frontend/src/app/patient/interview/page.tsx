@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseClient } from "@/lib/supabase/client";
 
@@ -41,10 +41,14 @@ export default function PatientInterviewPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [interviewId, setInterviewId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debouncedQuestionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     async function loadQuestionnaire() {
-      const supabase = createSupabaseClient();
+      try {
+        const supabase = createSupabaseClient();
 
       const { data: questionnaire, error: questionnaireError } = await supabase
         .from("questionnaires")
@@ -83,7 +87,12 @@ export default function PatientInterviewPage() {
 
       const {
         data: { session },
+        error: sessionError,
       } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        console.error("Auth session error:", sessionError);
+      }
 
       if (!session?.user?.id) {
         router.push("/patient/login");
@@ -109,9 +118,11 @@ export default function PatientInterviewPage() {
         .eq("hospital_id", "11111111-1111-1111-1111-111111111111")
         .eq("questionnaire_id", questionnaire.id)
         .in("status", ["draft", "in_progress"])
+        .limit(1)
         .maybeSingle();
 
       if (existingError) {
+        console.error("Existing interview fetch error:", existingError);
         setError("Unable to check existing interview.");
         setIsLoading(false);
         return;
@@ -159,10 +170,15 @@ export default function PatientInterviewPage() {
       }
 
       setIsLoading(false);
+    } catch (err) {
+      console.error("Interview load error:", err);
+      setError("An unexpected error occurred. Please try again later.");
+      setIsLoading(false);
     }
+  }
 
-    loadQuestionnaire();
-  }, [router]);
+  loadQuestionnaire();
+}, [router]);
 
   function handleAnswerChange(questionId: string, value: string) {
     setAnswers((prev) => ({
@@ -171,17 +187,19 @@ export default function PatientInterviewPage() {
     }));
   }
 
-  async function saveCurrentAnswer(): Promise<boolean> {
+  const saveCurrentAnswer = useCallback(async (questionId?: string, value?: string): Promise<boolean> => {
     if (!interviewId || questions.length === 0) {
       return true;
     }
 
-    const currentQuestion = questions[currentQuestionIndex];
-    const currentAnswer = answers[currentQuestion.id];
+    const resolvedQuestionId = questionId ?? questions[currentQuestionIndex].id;
+    const resolvedValue = value ?? answers[resolvedQuestionId];
 
-    if (!currentAnswer || currentAnswer.trim().length === 0) {
+    if (!resolvedValue || resolvedValue.trim().length === 0) {
       return true;
     }
+
+    setSaveStatus('saving');
 
     const supabase = createSupabaseClient();
     const { error } = await supabase
@@ -190,8 +208,8 @@ export default function PatientInterviewPage() {
         [
           {
             interview_id: interviewId,
-            question_id: currentQuestion.id,
-            value: currentAnswer.trim(),
+            question_id: resolvedQuestionId,
+            value: resolvedValue.trim(),
           },
         ],
         { onConflict: "interview_id,question_id" },
@@ -199,13 +217,21 @@ export default function PatientInterviewPage() {
 
     if (error) {
       setError("Unable to save answer. Please try again.");
+      setSaveStatus('error');
       return false;
     }
 
+    setSaveStatus('saved');
     return true;
-  }
+  }, [interviewId, questions, currentQuestionIndex, answers]);
 
   async function handleNext() {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    debouncedQuestionIdRef.current = null;
+
     const saved = await saveCurrentAnswer();
     if (!saved) {
       return;
@@ -243,13 +269,52 @@ export default function PatientInterviewPage() {
         return;
       }
 
-      router.push("/patient");
-      router.refresh();
+       router.push("/patient");
+       router.refresh();
     } catch {
       setError("An unexpected error occurred. Please try again.");
       setIsSubmitting(false);
     }
   }
+
+  useEffect(() => {
+    if (!questions.length || !interviewId || currentQuestionIndex >= questions.length) {
+      return;
+    }
+
+    const currentQuestion = questions[currentQuestionIndex];
+    const currentAnswer = answers[currentQuestion.id];
+
+    if (!currentAnswer || currentAnswer.trim().length === 0) {
+      return;
+    }
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debouncedQuestionIdRef.current = currentQuestion.id;
+
+    debounceTimerRef.current = setTimeout(async () => {
+      const questionIdToSave = debouncedQuestionIdRef.current;
+      debounceTimerRef.current = null;
+      debouncedQuestionIdRef.current = null;
+
+      if (!questionIdToSave) return;
+
+      const answerValue = answers[questionIdToSave];
+      if (!answerValue || answerValue.trim().length === 0) return;
+
+      await saveCurrentAnswer(questionIdToSave, answerValue);
+    }, 700);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    };
+  }, [answers, currentQuestionIndex, questions, interviewId, saveCurrentAnswer]);
 
   if (isLoading) {
     return (
@@ -359,7 +424,14 @@ export default function PatientInterviewPage() {
               {currentQuestionIndex > 0 && (
                 <button
                   type="button"
-                  onClick={() => setCurrentQuestionIndex((prev) => prev - 1)}
+                  onClick={() => {
+                    if (debounceTimerRef.current) {
+                      clearTimeout(debounceTimerRef.current);
+                      debounceTimerRef.current = null;
+                    }
+                    debouncedQuestionIdRef.current = null;
+                    setCurrentQuestionIndex((prev) => prev - 1);
+                  }}
                   className="flex h-14 w-full items-center justify-center rounded-xl border-2 border-zinc-300 text-lg font-semibold text-zinc-900 transition-colors hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-800 sm:w-auto sm:px-8"
                 >
                   Back
@@ -367,22 +439,44 @@ export default function PatientInterviewPage() {
               )}
 
               {currentQuestionIndex < questions.length - 1 ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="flex h-14 w-full items-center justify-center rounded-xl bg-zinc-900 text-lg font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
-                >
-                  Next
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="flex h-14 w-full items-center justify-center rounded-xl bg-zinc-900 text-lg font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                  >
+                    Next
+                  </button>
+                  {saveStatus === 'saving' && (
+                    <span className="text-sm text-zinc-500 dark:text-zinc-400">Saving...</span>
+                  )}
+                  {saveStatus === 'saved' && (
+                    <span className="text-sm text-green-600 dark:text-green-400">Saved ✓</span>
+                  )}
+                  {saveStatus === 'error' && (
+                    <span className="text-sm text-red-600 dark:text-red-400">Error saving</span>
+                  )}
+                </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={!hasAnswers || isSubmitting}
-                  className="flex h-14 w-full items-center justify-center rounded-xl bg-zinc-900 text-lg font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
-                >
-                  {isSubmitting ? "Submitting..." : "Submit Answers"}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={!hasAnswers || isSubmitting}
+                    className="flex h-14 w-full items-center justify-center rounded-xl bg-zinc-900 text-lg font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                  >
+                    {isSubmitting ? "Submitting..." : "Submit Answers"}
+                  </button>
+                  {saveStatus === 'saving' && (
+                    <span className="text-sm text-zinc-500 dark:text-zinc-400">Saving...</span>
+                  )}
+                  {saveStatus === 'saved' && (
+                    <span className="text-sm text-green-600 dark:text-green-400">Saved ✓</span>
+                  )}
+                  {saveStatus === 'error' && (
+                    <span className="text-sm text-red-600 dark:text-red-400">Error saving</span>
+                  )}
+                </div>
               )}
             </div>
           </form>
