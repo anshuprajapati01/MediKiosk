@@ -38,9 +38,9 @@ export default function PatientInterviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<AnswerState>({});
-  const [questionnaireId, setQuestionnaireId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [interviewId, setInterviewId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadQuestionnaire() {
@@ -66,8 +66,6 @@ export default function PatientInterviewPage() {
         return;
       }
 
-      setQuestionnaireId(questionnaire.id);
-
       const { data: fetchedQuestions, error: questionsError } = await supabase
         .from("questions")
         .select("*")
@@ -82,25 +80,7 @@ export default function PatientInterviewPage() {
       }
 
       setQuestions(fetchedQuestions || []);
-      setIsLoading(false);
-    }
 
-    loadQuestionnaire();
-  }, []);
-
-  function handleAnswerChange(questionId: string, value: string) {
-    setAnswers((prev) => ({
-      ...prev,
-      [questionId]: value,
-    }));
-  }
-
-  async function handleSubmit() {
-    setError(null);
-    setIsSubmitting(true);
-
-    try {
-      const supabase = createSupabaseClient();
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -118,50 +98,149 @@ export default function PatientInterviewPage() {
 
       if (patientError || !patient) {
         setError("Patient profile not found. Please complete onboarding first.");
-        setIsSubmitting(false);
+        setIsLoading(false);
         return;
       }
 
-      if (!questionnaireId) {
-        setError("Questionnaire not loaded. Please refresh and try again.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      const { data: interview, error: interviewError } = await supabase
+      const { data: existingInterview, error: existingError } = await supabase
         .from("interviews")
-        .insert({
-          patient_id: patient.id,
-          hospital_id: "11111111-1111-1111-1111-111111111111",
-          questionnaire_id: questionnaireId,
-          intake_type: "web",
-          status: "awaiting_review",
-        })
         .select("id")
-        .single();
+        .eq("patient_id", patient.id)
+        .eq("hospital_id", "11111111-1111-1111-1111-111111111111")
+        .eq("questionnaire_id", questionnaire.id)
+        .in("status", ["draft", "in_progress"])
+        .maybeSingle();
 
-      if (interviewError || !interview) {
-        setError("Unable to create interview. Please try again later.");
-        setIsSubmitting(false);
+      if (existingError) {
+        setError("Unable to check existing interview.");
+        setIsLoading(false);
         return;
       }
 
-      const answerRecords = Object.entries(answers)
-        .filter(([, value]) => value.trim().length > 0)
-        .map(([question_id, value]) => ({
-          interview_id: interview.id,
-          question_id,
-          value: value.trim(),
-        }));
+      if (existingInterview) {
+        setInterviewId(existingInterview.id);
 
-      if (answerRecords.length > 0) {
-        const { error: answersError } = await supabase.from("answers").insert(answerRecords);
+        const { data: existingAnswers, error: answersError } = await supabase
+          .from("answers")
+          .select("question_id, value")
+          .eq("interview_id", existingInterview.id);
 
         if (answersError) {
-          setError("Unable to save answers. Please try again later.");
-          setIsSubmitting(false);
+          setError("Unable to load existing answers.");
+          setIsLoading(false);
           return;
         }
+
+        const preFilled: AnswerState = {};
+        existingAnswers?.forEach((a) => {
+          if (a.value) preFilled[a.question_id] = a.value;
+        });
+        setAnswers(preFilled);
+      } else {
+        const { data: newInterview, error: createError } = await supabase
+          .from("interviews")
+          .insert({
+            patient_id: patient.id,
+            hospital_id: "11111111-1111-1111-1111-111111111111",
+            questionnaire_id: questionnaire.id,
+            intake_type: "web",
+            status: "in_progress",
+          })
+          .select("id")
+          .single();
+
+        if (createError || !newInterview) {
+          setError("Unable to start interview. Please try again later.");
+          setIsLoading(false);
+          return;
+        }
+
+        setInterviewId(newInterview.id);
+      }
+
+      setIsLoading(false);
+    }
+
+    loadQuestionnaire();
+  }, [router]);
+
+  function handleAnswerChange(questionId: string, value: string) {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: value,
+    }));
+  }
+
+  async function saveCurrentAnswer(): Promise<boolean> {
+    if (!interviewId || questions.length === 0) {
+      return true;
+    }
+
+    const currentQuestion = questions[currentQuestionIndex];
+    const currentAnswer = answers[currentQuestion.id];
+
+    if (!currentAnswer || currentAnswer.trim().length === 0) {
+      return true;
+    }
+
+    const supabase = createSupabaseClient();
+    const { error } = await supabase
+      .from("answers")
+      .upsert(
+        [
+          {
+            interview_id: interviewId,
+            question_id: currentQuestion.id,
+            value: currentAnswer.trim(),
+          },
+        ],
+        { onConflict: "interview_id,question_id" },
+      );
+
+    if (error) {
+      setError("Unable to save answer. Please try again.");
+      return false;
+    }
+
+    return true;
+  }
+
+  async function handleNext() {
+    const saved = await saveCurrentAnswer();
+    if (!saved) {
+      return;
+    }
+
+    setCurrentQuestionIndex((prev) => prev + 1);
+  }
+
+  async function handleSubmit() {
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const saved = await saveCurrentAnswer();
+      if (!saved) {
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!interviewId) {
+        setError("Interview not found. Please refresh and try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const supabase = createSupabaseClient();
+      const { error: updateError } = await supabase
+        .from("interviews")
+        .update({ status: "awaiting_review" })
+        .eq("id", interviewId);
+
+      if (updateError) {
+        setError("Unable to submit interview. Please try again later.");
+        setIsSubmitting(false);
+        return;
       }
 
       router.push("/patient");
@@ -290,7 +369,7 @@ export default function PatientInterviewPage() {
               {currentQuestionIndex < questions.length - 1 ? (
                 <button
                   type="button"
-                  onClick={() => setCurrentQuestionIndex((prev) => prev + 1)}
+                  onClick={handleNext}
                   className="flex h-14 w-full items-center justify-center rounded-xl bg-zinc-900 text-lg font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
                 >
                   Next
