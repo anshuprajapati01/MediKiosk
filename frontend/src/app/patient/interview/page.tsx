@@ -40,6 +40,7 @@ export default function PatientInterviewPage() {
   const [answers, setAnswers] = useState<AnswerState>({});
   const [questionnaireId, setQuestionnaireId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   useEffect(() => {
     async function loadQuestionnaire() {
@@ -209,54 +210,79 @@ export default function PatientInterviewPage() {
           </p>
 
           <form onSubmit={(e) => e.preventDefault()} noValidate className="flex flex-col gap-8">
-            {questions.map((question, index) => (
-              <div key={question.id} className="flex flex-col gap-3">
-                <label
-                  htmlFor={question.id}
-                  className="text-lg font-semibold text-zinc-900 dark:text-zinc-50"
+            {questions.length > 0 && (() => {
+              const question = questions[currentQuestionIndex];
+              return (
+                <div key={question.id} className="flex flex-col gap-3">
+                  <label
+                    htmlFor={question.id}
+                    className="text-lg font-semibold text-zinc-900 dark:text-zinc-50"
+                  >
+                    <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 text-sm font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
+                      {currentQuestionIndex + 1}
+                    </span>
+                    {question.text}
+                  </label>
+
+                  {question.type === "text" && (
+                    <textarea
+                      id={question.id}
+                      value={answers[question.id] || ""}
+                      onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                      rows={4}
+                      className="w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
+                    />
+                  )}
+
+                  {question.type === "number" && (
+                    <input
+                      id={question.id}
+                      type="number"
+                      value={answers[question.id] || ""}
+                      onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                      className="w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
+                    />
+                  )}
+
+                  {question.type !== "text" && question.type !== "number" && (
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Unsupported question type: {question.type}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+              {currentQuestionIndex > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setCurrentQuestionIndex((prev) => prev - 1)}
+                  className="flex h-14 w-full items-center justify-center rounded-xl border-2 border-zinc-300 text-lg font-semibold text-zinc-900 transition-colors hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-800 sm:w-auto sm:px-8"
                 >
-                  <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 text-sm font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
-                    {index + 1}
-                  </span>
-                  {question.text}
-                </label>
+                  Back
+                </button>
+              )}
 
-                {question.type === "text" && (
-                  <textarea
-                    id={question.id}
-                    value={answers[question.id] || ""}
-                    onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                    rows={4}
-                    className="w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
-                  />
-                )}
-
-                {question.type === "number" && (
-                  <input
-                    id={question.id}
-                    type="number"
-                    value={answers[question.id] || ""}
-                    onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                    className="w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
-                  />
-                )}
-
-                {question.type !== "text" && question.type !== "number" && (
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    Unsupported question type: {question.type}
-                  </p>
-                )}
-              </div>
-            ))}
-
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!hasAnswers || isSubmitting}
-              className="mt-4 flex h-16 w-full items-center justify-center rounded-xl bg-zinc-900 text-xl font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-            >
-              {isSubmitting ? "Submitting..." : "Submit Answers"}
-            </button>
+              {currentQuestionIndex < questions.length - 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setCurrentQuestionIndex((prev) => prev + 1)}
+                  className="flex h-14 w-full items-center justify-center rounded-xl bg-zinc-900 text-lg font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                >
+                  Next
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={!hasAnswers || isSubmitting}
+                  className="flex h-14 w-full items-center justify-center rounded-xl bg-zinc-900 text-lg font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                >
+                  {isSubmitting ? "Submitting..." : "Submit Answers"}
+                </button>
+              )}
+            </div>
           </form>
         </div>
       </div>
