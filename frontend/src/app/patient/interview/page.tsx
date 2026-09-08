@@ -42,6 +42,7 @@ export default function PatientInterviewPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [interviewId, setInterviewId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [isReviewMode, setIsReviewMode] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const debouncedQuestionIdRef = useRef<string | null>(null);
@@ -309,6 +310,15 @@ export default function PatientInterviewPage() {
     }
   }
 
+  async function handleReview() {
+    const saved = await saveCurrentAnswer();
+    if (!saved) {
+      return;
+    }
+
+    setIsReviewMode(true);
+  }
+
   useEffect(() => {
     if (!questions.length || !interviewId || currentQuestionIndex >= questions.length) {
       return;
@@ -392,131 +402,204 @@ export default function PatientInterviewPage() {
           )}
 
           <form onSubmit={(e) => e.preventDefault()} noValidate className="flex flex-col gap-8">
-            {questions.length > 0 && (() => {
-              const progressPercentage = Math.round(
-                ((currentQuestionIndex + 1) / questions.length) * 100,
-              );
+            {isReviewMode ? (
+              <div className="flex flex-col gap-6">
+                <h2 className="text-center text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+                  Review Your Answers
+                </h2>
+                <p className="text-center text-base text-zinc-600 dark:text-zinc-400">
+                  Please review your responses before submitting.
+                </p>
 
-              return (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between text-base font-medium text-zinc-700 dark:text-zinc-300">
-                    <span>
-                      Question {currentQuestionIndex + 1} of {questions.length}
-                    </span>
-                    <span>{progressPercentage}%</span>
-                  </div>
-                  <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-                    <div
-                      className="h-full rounded-full bg-blue-600 transition-all duration-300 ease-out dark:bg-blue-400"
-                      style={{ width: `${progressPercentage}%` }}
-                    />
-                  </div>
+                <div className="flex flex-col gap-4">
+                  {questions.map((question, index) => {
+                    const answer = answers[question.id];
+                    const isEmpty = !answer || answer.trim().length === 0;
+
+                    return (
+                      <div
+                        key={question.id}
+                        className="rounded-xl border-2 border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-700 dark:bg-zinc-800"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                              <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 text-sm font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
+                                {index + 1}
+                              </span>
+                              {question.text}
+                            </p>
+                            <p className={`mt-2 text-base ${isEmpty ? 'text-zinc-400 italic' : 'text-zinc-700 dark:text-zinc-300'}`}>
+                              {isEmpty ? 'No answer provided' : answer}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentQuestionIndex(index);
+                              setIsReviewMode(false);
+                            }}
+                            className="flex h-10 w-auto items-center justify-center rounded-lg border-2 border-zinc-300 px-4 text-sm font-semibold text-zinc-900 transition-colors hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-700"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })()}
 
-            {questions.length > 0 && (() => {
-              const question = questions[currentQuestionIndex];
-              return (
-                <div key={question.id} className="flex flex-col gap-3">
-                  <label
-                    htmlFor={question.id}
-                    className="text-lg font-semibold text-zinc-900 dark:text-zinc-50"
-                  >
-                    <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 text-sm font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
-                      {currentQuestionIndex + 1}
-                    </span>
-                    {question.text}
-                  </label>
-
-                  {question.type === "text" && (
-                    <textarea
-                      id={question.id}
-                      value={answers[question.id] || ""}
-                      onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                      rows={4}
-                      className="w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
-                    />
-                  )}
-
-                  {question.type === "number" && (
-                    <input
-                      id={question.id}
-                      type="number"
-                      value={answers[question.id] || ""}
-                      onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                      className="w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
-                    />
-                  )}
-
-                  {question.type !== "text" && question.type !== "number" && (
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                      Unsupported question type: {question.type}
-                    </p>
-                  )}
-                </div>
-              );
-            })()}
-
-            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-              {currentQuestionIndex > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (debounceTimerRef.current) {
-                      clearTimeout(debounceTimerRef.current);
-                      debounceTimerRef.current = null;
-                    }
-                    debouncedQuestionIdRef.current = null;
-                    setCurrentQuestionIndex((prev) => prev - 1);
-                  }}
-                  className="flex h-14 w-full items-center justify-center rounded-xl border-2 border-zinc-300 text-lg font-semibold text-zinc-900 transition-colors hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-800 sm:w-auto sm:px-8"
-                >
-                  Back
-                </button>
-              )}
-
-              {currentQuestionIndex < questions.length - 1 ? (
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
                   <button
                     type="button"
-                    onClick={handleNext}
-                    className="flex h-14 w-full items-center justify-center rounded-xl bg-zinc-900 text-lg font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                    onClick={() => {
+                      setCurrentQuestionIndex((prev) => prev - 1);
+                      setIsReviewMode(false);
+                    }}
+                    disabled={currentQuestionIndex === 0}
+                    className="flex h-14 w-full items-center justify-center rounded-xl border-2 border-zinc-300 text-lg font-semibold text-zinc-900 transition-colors hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-800 sm:w-auto sm:px-8"
                   >
-                    Next
+                    Back
                   </button>
-                  {saveStatus === 'saving' && (
-                    <span className="text-sm text-zinc-500 dark:text-zinc-400">Saving...</span>
-                  )}
-                  {saveStatus === 'saved' && (
-                    <span className="text-sm text-green-600 dark:text-green-400">Saved ✓</span>
-                  )}
-                  {saveStatus === 'error' && (
-                    <span className="text-sm text-red-600 dark:text-red-400">Error saving</span>
-                  )}
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
+
                   <button
                     type="button"
                     onClick={handleSubmit}
                     disabled={!hasAnswers || isSubmitting}
                     className="flex h-14 w-full items-center justify-center rounded-xl bg-zinc-900 text-lg font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
                   >
-                    {isSubmitting ? "Submitting..." : "Submit Answers"}
+                    {isSubmitting ? "Submitting..." : "Submit Case"}
                   </button>
-                  {saveStatus === 'saving' && (
-                    <span className="text-sm text-zinc-500 dark:text-zinc-400">Saving...</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                {questions.length > 0 && (() => {
+                  const progressPercentage = Math.round(
+                    ((currentQuestionIndex + 1) / questions.length) * 100,
+                  );
+
+                  return (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between text-base font-medium text-zinc-700 dark:text-zinc-300">
+                        <span>
+                          Question {currentQuestionIndex + 1} of {questions.length}
+                        </span>
+                        <span>{progressPercentage}%</span>
+                      </div>
+                      <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                        <div
+                          className="h-full rounded-full bg-blue-600 transition-all duration-300 ease-out dark:bg-blue-400"
+                          style={{ width: `${progressPercentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {questions.length > 0 && (() => {
+                  const question = questions[currentQuestionIndex];
+                  return (
+                    <div key={question.id} className="flex flex-col gap-3">
+                      <label
+                        htmlFor={question.id}
+                        className="text-lg font-semibold text-zinc-900 dark:text-zinc-50"
+                      >
+                        <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 text-sm font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
+                          {currentQuestionIndex + 1}
+                        </span>
+                        {question.text}
+                      </label>
+
+                      {question.type === "text" && (
+                        <textarea
+                          id={question.id}
+                          value={answers[question.id] || ""}
+                          onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                          rows={4}
+                          className="w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
+                        />
+                      )}
+
+                      {question.type === "number" && (
+                        <input
+                          id={question.id}
+                          type="number"
+                          value={answers[question.id] || ""}
+                          onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                          className="w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
+                        />
+                      )}
+
+                      {question.type !== "text" && question.type !== "number" && (
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                          Unsupported question type: {question.type}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+                  {currentQuestionIndex > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (debounceTimerRef.current) {
+                          clearTimeout(debounceTimerRef.current);
+                          debounceTimerRef.current = null;
+                        }
+                        debouncedQuestionIdRef.current = null;
+                        setCurrentQuestionIndex((prev) => prev - 1);
+                      }}
+                      className="flex h-14 w-full items-center justify-center rounded-xl border-2 border-zinc-300 text-lg font-semibold text-zinc-900 transition-colors hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-800 sm:w-auto sm:px-8"
+                    >
+                      Back
+                    </button>
                   )}
-                  {saveStatus === 'saved' && (
-                    <span className="text-sm text-green-600 dark:text-green-400">Saved ✓</span>
-                  )}
-                  {saveStatus === 'error' && (
-                    <span className="text-sm text-red-600 dark:text-red-400">Error saving</span>
+
+                  {currentQuestionIndex < questions.length - 1 ? (
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleNext}
+                        className="flex h-14 w-full items-center justify-center rounded-xl bg-zinc-900 text-lg font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                      >
+                        Next
+                      </button>
+                      {saveStatus === 'saving' && (
+                        <span className="text-sm text-zinc-500 dark:text-zinc-400">Saving...</span>
+                      )}
+                      {saveStatus === 'saved' && (
+                        <span className="text-sm text-green-600 dark:text-green-400">Saved ✓</span>
+                      )}
+                      {saveStatus === 'error' && (
+                        <span className="text-sm text-red-600 dark:text-red-400">Error saving</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleReview}
+                        className="flex h-14 w-full items-center justify-center rounded-xl bg-zinc-900 text-lg font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                      >
+                        Review Answers
+                      </button>
+                      {saveStatus === 'saving' && (
+                        <span className="text-sm text-zinc-500 dark:text-zinc-400">Saving...</span>
+                      )}
+                      {saveStatus === 'saved' && (
+                        <span className="text-sm text-green-600 dark:text-green-400">Saved ✓</span>
+                      )}
+                      {saveStatus === 'error' && (
+                        <span className="text-sm text-red-600 dark:text-red-400">Error saving</span>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </form>
         </div>
       </div>
