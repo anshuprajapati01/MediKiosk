@@ -363,7 +363,7 @@ export default function PatientInterviewPage() {
       <div className="flex flex-1 items-center justify-center bg-white dark:bg-black">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-zinc-100" />
-          <p className="text-lg text-zinc-600 dark:text-zinc-400">Loading clinical interview...</p>
+          <p className="text-lg text-zinc-600 dark:text-zinc-400">Preparing your clinical assessment...</p>
         </div>
       </div>
     );
@@ -419,12 +419,20 @@ export default function PatientInterviewPage() {
                     return (
                       <div
                         key={question.id}
-                        className="rounded-xl border-2 border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-700 dark:bg-zinc-800"
+                        className={`rounded-xl border-2 p-5 transition-colors ${
+                          isEmpty
+                            ? 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950'
+                            : 'border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800'
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
                             <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-                              <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 text-sm font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
+                              <span className={`mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${
+                                isEmpty
+                                  ? 'bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100'
+                                  : 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                              }`}>
                                 {index + 1}
                               </span>
                               {question.text}
@@ -439,7 +447,7 @@ export default function PatientInterviewPage() {
                               setCurrentQuestionIndex(index);
                               setIsReviewMode(false);
                             }}
-                            className="flex h-10 w-auto items-center justify-center rounded-lg border-2 border-zinc-300 px-4 text-sm font-semibold text-zinc-900 transition-colors hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-700"
+                            className="flex min-h-[50px] w-auto items-center justify-center rounded-lg border-2 border-zinc-300 px-4 py-3 text-sm font-semibold text-zinc-900 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-700"
                           >
                             Edit
                           </button>
@@ -457,7 +465,7 @@ export default function PatientInterviewPage() {
                       setIsReviewMode(false);
                     }}
                     disabled={currentQuestionIndex === 0}
-                    className="flex h-14 w-full items-center justify-center rounded-xl border-2 border-zinc-300 text-lg font-semibold text-zinc-900 transition-colors hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-800 sm:w-auto sm:px-8"
+                    className="flex min-h-[50px] w-full items-center justify-center rounded-xl border-2 border-zinc-300 px-4 py-3 text-lg font-semibold text-zinc-900 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-800 sm:w-auto sm:px-8"
                   >
                     Back
                   </button>
@@ -466,7 +474,7 @@ export default function PatientInterviewPage() {
                     type="button"
                     onClick={handleSubmit}
                     disabled={!hasAnswers || isSubmitting}
-                    className="flex h-14 w-full items-center justify-center rounded-xl bg-zinc-900 text-lg font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                    className="flex min-h-[50px] w-full items-center justify-center rounded-xl bg-zinc-900 px-4 py-3 text-lg font-semibold text-white transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
                   >
                     {isSubmitting ? "Submitting..." : "Submit Case"}
                   </button>
@@ -480,14 +488,14 @@ export default function PatientInterviewPage() {
                   );
 
                   return (
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2" aria-live="polite" aria-label="Interview progress">
                       <div className="flex items-center justify-between text-base font-medium text-zinc-700 dark:text-zinc-300">
                         <span>
                           Question {currentQuestionIndex + 1} of {questions.length}
                         </span>
                         <span>{progressPercentage}%</span>
                       </div>
-                      <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                      <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800" role="progressbar" aria-valuenow={progressPercentage} aria-valuemin={0} aria-valuemax={100} aria-label="Question progress">
                         <div
                           className="h-full rounded-full bg-blue-600 transition-all duration-300 ease-out dark:bg-blue-400"
                           style={{ width: `${progressPercentage}%` }}
@@ -503,9 +511,9 @@ export default function PatientInterviewPage() {
                     <div key={question.id} className="flex flex-col gap-3">
                       <label
                         htmlFor={question.id}
-                        className="text-lg font-semibold text-zinc-900 dark:text-zinc-50"
+                        className="text-xl font-semibold text-zinc-900 dark:text-zinc-50"
                       >
-                        <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 text-sm font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
+                        <span className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-base font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
                           {currentQuestionIndex + 1}
                         </span>
                         {question.text}
@@ -517,7 +525,7 @@ export default function PatientInterviewPage() {
                           value={answers[question.id] || ""}
                           onChange={(e) => handleAnswerChange(question.id, e.target.value)}
                           rows={4}
-                          className="w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
+                          className="min-h-[50px] w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
                         />
                       )}
 
@@ -527,7 +535,7 @@ export default function PatientInterviewPage() {
                           type="number"
                           value={answers[question.id] || ""}
                           onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                          className="w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
+                          className="min-h-[50px] w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
                         />
                       )}
 
@@ -552,7 +560,7 @@ export default function PatientInterviewPage() {
                         debouncedQuestionIdRef.current = null;
                         setCurrentQuestionIndex((prev) => prev - 1);
                       }}
-                      className="flex h-14 w-full items-center justify-center rounded-xl border-2 border-zinc-300 text-lg font-semibold text-zinc-900 transition-colors hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-800 sm:w-auto sm:px-8"
+                      className="flex min-h-[50px] w-full items-center justify-center rounded-xl border-2 border-zinc-300 px-4 py-3 text-lg font-semibold text-zinc-900 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-800 sm:w-auto sm:px-8"
                     >
                       Back
                     </button>
@@ -563,18 +571,23 @@ export default function PatientInterviewPage() {
                       <button
                         type="button"
                         onClick={handleNext}
-                        className="flex h-14 w-full items-center justify-center rounded-xl bg-zinc-900 text-lg font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                        className="flex min-h-[50px] w-full items-center justify-center rounded-xl bg-zinc-900 px-4 py-3 text-lg font-semibold text-white transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
                       >
                         Next
                       </button>
+                      <span aria-live="polite" className="sr-only">
+                        {saveStatus === 'saving' && 'Saving'}
+                        {saveStatus === 'saved' && 'Saved'}
+                        {saveStatus === 'error' && 'Error saving'}
+                      </span>
                       {saveStatus === 'saving' && (
-                        <span className="text-sm text-zinc-500 dark:text-zinc-400">Saving...</span>
+                        <span className="text-sm text-zinc-500 dark:text-zinc-400" aria-hidden="true">Saving...</span>
                       )}
                       {saveStatus === 'saved' && (
-                        <span className="text-sm text-green-600 dark:text-green-400">Saved ✓</span>
+                        <span className="text-sm text-green-600 dark:text-green-400" aria-hidden="true">Saved ✓</span>
                       )}
                       {saveStatus === 'error' && (
-                        <span className="text-sm text-red-600 dark:text-red-400">Error saving</span>
+                        <span className="text-sm text-red-600 dark:text-red-400" aria-hidden="true">Error saving</span>
                       )}
                     </div>
                   ) : (
@@ -582,18 +595,23 @@ export default function PatientInterviewPage() {
                       <button
                         type="button"
                         onClick={handleReview}
-                        className="flex h-14 w-full items-center justify-center rounded-xl bg-zinc-900 text-lg font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                        className="flex min-h-[50px] w-full items-center justify-center rounded-xl bg-zinc-900 px-4 py-3 text-lg font-semibold text-white transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
                       >
                         Review Answers
                       </button>
+                      <span aria-live="polite" className="sr-only">
+                        {saveStatus === 'saving' && 'Saving'}
+                        {saveStatus === 'saved' && 'Saved'}
+                        {saveStatus === 'error' && 'Error saving'}
+                      </span>
                       {saveStatus === 'saving' && (
-                        <span className="text-sm text-zinc-500 dark:text-zinc-400">Saving...</span>
+                        <span className="text-sm text-zinc-500 dark:text-zinc-400" aria-hidden="true">Saving...</span>
                       )}
                       {saveStatus === 'saved' && (
-                        <span className="text-sm text-green-600 dark:text-green-400">Saved ✓</span>
+                        <span className="text-sm text-green-600 dark:text-green-400" aria-hidden="true">Saved ✓</span>
                       )}
                       {saveStatus === 'error' && (
-                        <span className="text-sm text-red-600 dark:text-red-400">Error saving</span>
+                        <span className="text-sm text-red-600 dark:text-red-400" aria-hidden="true">Error saving</span>
                       )}
                     </div>
                   )}
