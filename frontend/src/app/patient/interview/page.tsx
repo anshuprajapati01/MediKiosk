@@ -71,9 +71,17 @@ type Question = {
   updated_at: string;
   depends_on_question_id: string | null;
   depends_on_answer: string | null;
+  questionnaire_sections?: { title: string; description?: string } | null;
 };
 
 type AnswerState = Record<string, string>;
+
+const getSectionTitle = (q: Question | Record<string, unknown>) => {
+  const sections = (q as Record<string, unknown>).questionnaire_sections;
+  if (!sections) return null;
+  if (Array.isArray(sections)) return (sections as { title?: string }[])[0]?.title || null;
+  return (sections as { title?: string }).title || null;
+};
 
 export default function PatientInterviewPage() {
   const router = useRouter();
@@ -234,7 +242,7 @@ export default function PatientInterviewPage() {
 
       const { data: fetchedQuestions, error: questionsError } = await supabase
         .from("questions")
-        .select("*")
+        .select("*, questionnaire_sections(title, description)")
         .eq("questionnaire_id", questionnaire.id)
         .eq("is_active", true)
         .order("sort_order", { ascending: true });
@@ -246,6 +254,7 @@ export default function PatientInterviewPage() {
       }
 
       setQuestions(fetchedQuestions || []);
+      console.log("Fetched Questions Data:", fetchedQuestions);
 
       const {
         data: { session },
@@ -576,9 +585,23 @@ export default function PatientInterviewPage() {
                             : 'border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                         <div className="flex items-start justify-between gap-4">
+                         <div className="flex-1">
+                           {getSectionTitle(question) && (
+                             <div className="mb-4">
+                               <span className="text-sm font-semibold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full dark:bg-emerald-900/50 dark:text-emerald-400">
+                                 {getSectionTitle(question)}
+                               </span>
+                             </div>
+                           )}
+                           {question.section_id === '60f7a39e-754e-440f-99b6-eebfe01ebecd' && (
+                             <div className="mb-4">
+                               <span className="text-sm font-semibold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full dark:bg-emerald-900/50 dark:text-emerald-400">
+                                 AYUSH Lifestyle Assessment
+                               </span>
+                             </div>
+                           )}
+                           <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
                               <span className={`mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${
                                 isEmpty
                                   ? 'bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100'
@@ -657,10 +680,24 @@ export default function PatientInterviewPage() {
                 })()}
 
                  {visibleQuestions.length > 0 && (() => {
-                   const question = visibleQuestions[displayIndex];
-                   return (
-                     <div key={question.id} className="flex flex-col gap-3">
-                       <div className="flex items-center gap-3">
+                    const question = visibleQuestions[displayIndex];
+                     return (
+                        <div key={question.id} className="flex flex-col gap-3">
+                          {getSectionTitle(question) && (
+                            <div className="mb-4">
+                              <span className="text-sm font-semibold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full dark:bg-emerald-900/50 dark:text-emerald-400">
+                                {getSectionTitle(question)}
+                              </span>
+                            </div>
+                          )}
+                          {question.section_id === '60f7a39e-754e-440f-99b6-eebfe01ebecd' && (
+                            <div className="mb-4">
+                              <span className="text-sm font-semibold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full dark:bg-emerald-900/50 dark:text-emerald-400">
+                                AYUSH Lifestyle Assessment
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-3">
                          <label
                            htmlFor={question.id}
                            className="text-xl font-semibold text-zinc-900 dark:text-zinc-50"
