@@ -42,8 +42,25 @@ export default function PatientInterviewPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [interviewId, setInterviewId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [isResuming, setIsResuming] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const debouncedQuestionIdRef = useRef<string | null>(null);
+  const resumeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (isResuming) {
+      resumeTimerRef.current = setTimeout(() => {
+        setIsResuming(false);
+      }, 5000);
+
+      return () => {
+        if (resumeTimerRef.current) {
+          clearTimeout(resumeTimerRef.current);
+          resumeTimerRef.current = null;
+        }
+      };
+    }
+  }, [isResuming]);
 
   useEffect(() => {
     async function loadQuestionnaire() {
@@ -147,6 +164,21 @@ export default function PatientInterviewPage() {
           if (a.value) preFilled[a.question_id] = a.value;
         });
         setAnswers(preFilled);
+
+        const questionsData = fetchedQuestions || [];
+        if (questionsData.length > 0) {
+          const resumeIndex = questionsData.findIndex((q) => {
+            const answer = existingAnswers?.find((a) => a.question_id === q.id);
+            return !answer || !answer.value || answer.value.trim().length === 0;
+          });
+
+          const finalIndex = resumeIndex >= 0 ? resumeIndex : questionsData.length - 1;
+          setCurrentQuestionIndex(finalIndex);
+
+          if (finalIndex > 0) {
+            setIsResuming(true);
+          }
+        }
       } else {
         const { data: newInterview, error: createError } = await supabase
           .from("interviews")
@@ -352,6 +384,12 @@ export default function PatientInterviewPage() {
           <p className="mb-8 text-center text-base text-zinc-600 dark:text-zinc-400">
             Please answer the following questions to the best of your ability.
           </p>
+
+          {isResuming && (
+            <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-center text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
+              You have an unfinished assessment. Resuming where you left off.
+            </div>
+          )}
 
           <form onSubmit={(e) => e.preventDefault()} noValidate className="flex flex-col gap-8">
             {questions.length > 0 && (() => {
