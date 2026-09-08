@@ -4,6 +4,47 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseClient } from "@/lib/supabase/client";
 
+interface SpeechRecognitionEvent {
+  results: {
+    length: number;
+    [index: number]: {
+      length: number;
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition?: new () => {
+      continuous: boolean;
+      interimResults: boolean;
+      lang: string;
+      onresult: ((event: SpeechRecognitionEvent) => void) | null;
+      onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+      onend: (() => void) | null;
+      start(): void;
+      stop(): void;
+    };
+    webkitSpeechRecognition?: new () => {
+      continuous: boolean;
+      interimResults: boolean;
+      lang: string;
+      onresult: ((event: SpeechRecognitionEvent) => void) | null;
+      onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+      onend: (() => void) | null;
+      start(): void;
+      stop(): void;
+    };
+  }
+}
+
 type Questionnaire = {
   id: string;
   name: string;
@@ -46,6 +87,8 @@ export default function PatientInterviewPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const debouncedQuestionIdRef = useRef<string | null>(null);
   const resumeTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -56,6 +99,76 @@ export default function PatientInterviewPage() {
     if (!parentAnswer || parentAnswer.trim().length === 0) return false;
     if (!question.depends_on_answer) return true;
     return parentAnswer.toLowerCase() === question.depends_on_answer.toLowerCase();
+  }
+
+  function speakText(text: string, locale?: string) {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = locale === 'hi' ? 'hi-IN' : 'en-IN';
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function toggleListening() {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser.');
+      return;
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    const currentQuestion = visibleQuestions[currentQuestionIndex];
+    recognition.lang = currentQuestion.locale === 'hi' ? 'hi-IN' : 'en-IN';
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const last = event.results[event.results.length - 1];
+      const transcript = last[0].transcript;
+      if (currentQuestion) {
+        if (currentQuestion.type === 'number') {
+          const match = transcript.match(/\d+/);
+          if (match) {
+            handleAnswerChange(currentQuestion.id, match[0]);
+          }
+        } else {
+          handleAnswerChange(currentQuestion.id, transcript);
+        }
+      }
+    };
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      if (event.error === 'not-allowed') {
+        alert('Microphone access was denied. Please allow microphone access to use voice input.');
+      }
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    setIsListening(true);
+    recognition.start();
   }
 
   const visibleQuestions = useMemo(() => {
@@ -85,6 +198,14 @@ export default function PatientInterviewPage() {
       };
     }
   }, [isResuming]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     async function loadQuestionnaire() {
@@ -535,39 +656,71 @@ export default function PatientInterviewPage() {
                   );
                 })()}
 
-                {visibleQuestions.length > 0 && (() => {
-                  const question = visibleQuestions[displayIndex];
-                  return (
-                    <div key={question.id} className="flex flex-col gap-3">
-                      <label
-                        htmlFor={question.id}
-                        className="text-xl font-semibold text-zinc-900 dark:text-zinc-50"
-                      >
-                        <span className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-base font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
-                          {displayIndex + 1}
-                        </span>
-                        {question.text}
-                      </label>
+                 {visibleQuestions.length > 0 && (() => {
+                   const question = visibleQuestions[displayIndex];
+                   return (
+                     <div key={question.id} className="flex flex-col gap-3">
+                       <div className="flex items-center gap-3">
+                         <label
+                           htmlFor={question.id}
+                           className="text-xl font-semibold text-zinc-900 dark:text-zinc-50"
+                         >
+                           <span className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-base font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
+                             {displayIndex + 1}
+                           </span>
+                           {question.text}
+                         </label>
+                         <button
+                           type="button"
+                           onClick={() => {
+                             if (isSpeaking) {
+                               window.speechSynthesis.cancel();
+                               setIsSpeaking(false);
+                             } else {
+                               speakText(question.text, question.locale);
+                             }
+                           }}
+                           className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border-2 border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-900 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-700"
+                           aria-label={isSpeaking ? 'Stop listening' : 'Listen to question'}
+                         >
+                           {isSpeaking ? '⏹ Stop' : '🔊 Listen'}
+                         </button>
+                       </div>
 
-                      {question.type === "text" && (
-                        <textarea
-                          id={question.id}
-                          value={answers[question.id] || ""}
-                          onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                          rows={4}
-                          className="min-h-[50px] w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
-                        />
-                      )}
+                       {question.type === "text" && (
+                         <textarea
+                           id={question.id}
+                           value={answers[question.id] || ""}
+                           onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                           rows={4}
+                           className="min-h-[50px] w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
+                         />
+                       )}
 
-                      {question.type === "number" && (
-                        <input
-                          id={question.id}
-                          type="number"
-                          value={answers[question.id] || ""}
-                          onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                          className="min-h-[50px] w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
-                        />
-                      )}
+                       {question.type === "number" && (
+                         <input
+                           id={question.id}
+                           type="number"
+                           value={answers[question.id] || ""}
+                           onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                           className="min-h-[50px] w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
+                         />
+                       )}
+
+                       {typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition) && (
+                         <button
+                           type="button"
+                           onClick={toggleListening}
+                           className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-semibold transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                             isListening
+                               ? 'border-red-500 bg-red-50 text-red-700 animate-pulse dark:border-red-400 dark:bg-red-950 dark:text-red-200'
+                               : 'border-zinc-300 text-zinc-900 hover:border-zinc-900 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-700'
+                           } disabled:cursor-not-allowed disabled:opacity-60`}
+                           aria-label={isListening ? 'Stop listening' : 'Speak your answer'}
+                         >
+                           {isListening ? '🔴 Listening...' : '🎤 Speak'}
+                         </button>
+                       )}
 
                       {question.type !== "text" && question.type !== "number" && (
                         <p className="text-sm text-zinc-500 dark:text-zinc-400">
