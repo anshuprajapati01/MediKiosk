@@ -211,6 +211,29 @@ export default function PatientInterviewPage() {
 
           <form onSubmit={(e) => e.preventDefault()} noValidate className="flex flex-col gap-8">
             {questions.length > 0 && (() => {
+              const progressPercentage = Math.round(
+                ((currentQuestionIndex + 1) / questions.length) * 100,
+              );
+
+              return (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between text-base font-medium text-zinc-700 dark:text-zinc-300">
+                    <span>
+                      Question {currentQuestionIndex + 1} of {questions.length}
+                    </span>
+                    <span>{progressPercentage}%</span>
+                  </div>
+                  <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                    <div
+                      className="h-full rounded-full bg-blue-600 transition-all duration-300 ease-out dark:bg-blue-400"
+                      style={{ width: `${progressPercentage}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
+
+            {questions.length > 0 && (() => {
               const question = questions[currentQuestionIndex];
               return (
                 <div key={question.id} className="flex flex-col gap-3">
