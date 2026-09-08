@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseClient } from "@/lib/supabase/client";
 
@@ -28,6 +28,8 @@ type Question = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  depends_on_question_id: string | null;
+  depends_on_answer: string | null;
 };
 
 type AnswerState = Record<string, string>;
@@ -47,6 +49,27 @@ export default function PatientInterviewPage() {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const debouncedQuestionIdRef = useRef<string | null>(null);
   const resumeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  function isQuestionVisible(question: Question, currentAnswers: Record<string, string>): boolean {
+    if (!question.depends_on_question_id) return true;
+    const parentAnswer = currentAnswers[question.depends_on_question_id];
+    if (!parentAnswer || parentAnswer.trim().length === 0) return false;
+    if (!question.depends_on_answer) return true;
+    return parentAnswer.toLowerCase() === question.depends_on_answer.toLowerCase();
+  }
+
+  const visibleQuestions = useMemo(() => {
+    return questions.filter((q) => isQuestionVisible(q, answers));
+  }, [questions, answers]);
+
+  useEffect(() => {
+    if (currentQuestionIndex >= visibleQuestions.length && visibleQuestions.length > 0) {
+      const timer = setTimeout(() => {
+        setCurrentQuestionIndex(visibleQuestions.length - 1);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [visibleQuestions.length, currentQuestionIndex]);
 
   useEffect(() => {
     if (isResuming) {
@@ -168,12 +191,12 @@ export default function PatientInterviewPage() {
 
         const questionsData = fetchedQuestions || [];
         if (questionsData.length > 0) {
-          const resumeIndex = questionsData.findIndex((q) => {
+          const visibleQuestionsData = questionsData.filter((q) => isQuestionVisible(q, preFilled));
+          const resumeIndex = visibleQuestionsData.findIndex((q) => {
             const answer = existingAnswers?.find((a) => a.question_id === q.id);
             return !answer || !answer.value || answer.value.trim().length === 0;
           });
-
-          const finalIndex = resumeIndex >= 0 ? resumeIndex : questionsData.length - 1;
+          const finalIndex = resumeIndex >= 0 ? resumeIndex : Math.max(0, visibleQuestionsData.length - 1);
           setCurrentQuestionIndex(finalIndex);
 
           if (finalIndex > 0) {
@@ -221,11 +244,11 @@ export default function PatientInterviewPage() {
   }
 
   const saveCurrentAnswer = useCallback(async (questionId?: string, value?: string): Promise<boolean> => {
-    if (!interviewId || questions.length === 0) {
+    if (!interviewId || visibleQuestions.length === 0 || currentQuestionIndex >= visibleQuestions.length) {
       return true;
     }
 
-    const resolvedQuestionId = questionId ?? questions[currentQuestionIndex].id;
+    const resolvedQuestionId = questionId ?? visibleQuestions[currentQuestionIndex].id;
     const resolvedValue = value ?? answers[resolvedQuestionId];
 
     if (!resolvedValue || resolvedValue.trim().length === 0) {
@@ -256,9 +279,12 @@ export default function PatientInterviewPage() {
 
     setSaveStatus('saved');
     return true;
-  }, [interviewId, questions, currentQuestionIndex, answers]);
+  }, [interviewId, visibleQuestions, currentQuestionIndex, answers]);
 
   async function handleNext() {
+    if (currentQuestionIndex >= visibleQuestions.length - 1) {
+      return;
+    }
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
@@ -311,6 +337,9 @@ export default function PatientInterviewPage() {
   }
 
   async function handleReview() {
+    if (currentQuestionIndex >= visibleQuestions.length) {
+      return;
+    }
     const saved = await saveCurrentAnswer();
     if (!saved) {
       return;
@@ -320,11 +349,11 @@ export default function PatientInterviewPage() {
   }
 
   useEffect(() => {
-    if (!questions.length || !interviewId || currentQuestionIndex >= questions.length) {
+    if (!visibleQuestions.length || !interviewId || currentQuestionIndex >= visibleQuestions.length) {
       return;
     }
 
-    const currentQuestion = questions[currentQuestionIndex];
+    const currentQuestion = visibleQuestions[currentQuestionIndex];
     const currentAnswer = answers[currentQuestion.id];
 
     if (!currentAnswer || currentAnswer.trim().length === 0) {
@@ -356,7 +385,7 @@ export default function PatientInterviewPage() {
         debounceTimerRef.current = null;
       }
     };
-  }, [answers, currentQuestionIndex, questions, interviewId, saveCurrentAnswer]);
+  }, [answers, currentQuestionIndex, visibleQuestions, interviewId, saveCurrentAnswer]);
 
   if (isLoading) {
     return (
@@ -383,6 +412,7 @@ export default function PatientInterviewPage() {
   }
 
   const hasAnswers = Object.values(answers).some((value) => value.trim().length > 0);
+  const displayIndex = Math.min(currentQuestionIndex, Math.max(0, visibleQuestions.length - 1));
 
   return (
     <div className="flex flex-1 items-start justify-center bg-zinc-50 py-10 dark:bg-black">
@@ -412,7 +442,7 @@ export default function PatientInterviewPage() {
                 </p>
 
                 <div className="flex flex-col gap-4">
-                  {questions.map((question, index) => {
+                  {visibleQuestions.map((question, index) => {
                     const answer = answers[question.id];
                     const isEmpty = !answer || answer.trim().length === 0;
 
@@ -482,16 +512,16 @@ export default function PatientInterviewPage() {
               </div>
             ) : (
               <>
-                {questions.length > 0 && (() => {
+                {visibleQuestions.length > 0 && (() => {
                   const progressPercentage = Math.round(
-                    ((currentQuestionIndex + 1) / questions.length) * 100,
+                    ((displayIndex + 1) / visibleQuestions.length) * 100,
                   );
 
                   return (
                     <div className="flex flex-col gap-2" aria-live="polite" aria-label="Interview progress">
                       <div className="flex items-center justify-between text-base font-medium text-zinc-700 dark:text-zinc-300">
                         <span>
-                          Question {currentQuestionIndex + 1} of {questions.length}
+                          Question {displayIndex + 1} of {visibleQuestions.length}
                         </span>
                         <span>{progressPercentage}%</span>
                       </div>
@@ -505,8 +535,8 @@ export default function PatientInterviewPage() {
                   );
                 })()}
 
-                {questions.length > 0 && (() => {
-                  const question = questions[currentQuestionIndex];
+                {visibleQuestions.length > 0 && (() => {
+                  const question = visibleQuestions[displayIndex];
                   return (
                     <div key={question.id} className="flex flex-col gap-3">
                       <label
@@ -514,7 +544,7 @@ export default function PatientInterviewPage() {
                         className="text-xl font-semibold text-zinc-900 dark:text-zinc-50"
                       >
                         <span className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-base font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
-                          {currentQuestionIndex + 1}
+                          {displayIndex + 1}
                         </span>
                         {question.text}
                       </label>
@@ -566,7 +596,7 @@ export default function PatientInterviewPage() {
                     </button>
                   )}
 
-                  {currentQuestionIndex < questions.length - 1 ? (
+                  {currentQuestionIndex < visibleQuestions.length - 1 ? (
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
