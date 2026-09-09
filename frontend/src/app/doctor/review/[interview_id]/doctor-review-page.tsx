@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseClient } from "@/lib/supabase/client";
+import MedicalTimeline, { TimelineEvent } from "@/components/MedicalTimeline";
 
 type PatientInfo = {
   id: string;
@@ -93,6 +94,7 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
   const [patient, setPatient] = useState<PatientInfo | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [aiResult, setAiResult] = useState<{
     extracted_text: string;
@@ -143,6 +145,31 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
 
         setPatient(patientData);
 
+        if (!patientData) {
+          setError("Patient record not found.");
+          setIsLoading(false);
+          return;
+        }
+
+        const { data: pastInterviews, error: pastInterviewsError } = await supabase
+          .from("interviews")
+          .select("id, updated_at, status")
+          .eq("patient_id", patientData.id);
+
+        if (pastInterviewsError) {
+          setError("Unable to load patient interview history. Please try again later.");
+          setIsLoading(false);
+          return;
+        }
+
+        const interviewEvents: TimelineEvent[] = (pastInterviews ?? []).map((intv) => ({
+          id: intv.id,
+          date: intv.updated_at,
+          type: "interview",
+          title: "Patient Consultation",
+          sourceRef: intv.id,
+        }));
+
         const { data: answersData, error: answersError } = await supabase
           .from("answers")
           .select("*, questions(*, questionnaire_sections(title, description))")
@@ -170,6 +197,16 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
         }
 
         setDocuments((documentsData ?? []) as Document[]);
+
+        const documentEvents: TimelineEvent[] = (documentsData ?? []).map((doc) => ({
+          id: doc.id,
+          date: doc.created_at,
+          type: "document",
+          title: `Document Uploaded: ${doc.file_name}`,
+          sourceRef: doc.id,
+        }));
+
+        setTimelineEvents([...interviewEvents, ...documentEvents]);
         setIsLoading(false);
       } catch {
         setError("An unexpected error occurred. Please try again later.");
@@ -350,6 +387,16 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
                 <p className="text-white text-lg font-semibold truncate">{interview?.id}</p>
               </div>
             </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md dark:border-white/5 dark:bg-white/5">
+            <div className="mb-6 flex items-center gap-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Patient Medical Timeline</h2>
+            </div>
+            <MedicalTimeline events={timelineEvents} />
           </div>
 
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md dark:border-white/5 dark:bg-white/5">
