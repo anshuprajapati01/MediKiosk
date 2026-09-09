@@ -90,15 +90,24 @@ function getPatientName(patient: PatientInfo | null | undefined): string {
 function SummaryField({
   label,
   value,
+  source,
   className,
 }: {
   label: string;
   value: string;
+  source?: string;
   className?: string;
 }) {
   return (
     <div className={`rounded-lg border border-white/5 bg-white/5 p-4 ${className ?? ""}`.trim()}>
-      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+        {source && (
+          <span className="inline-flex items-center rounded-full border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-300">
+            {source.replace(/_/g, " ")}
+          </span>
+        )}
+      </div>
       <p className="mt-1 text-sm text-slate-200">{value}</p>
     </div>
   );
@@ -132,6 +141,16 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
     redFlagsSummary: string;
     missingInfo: string;
     aiSummary: string;
+    evidenceMapping: {
+      chiefComplaintSource: string;
+      historySource: string;
+      medicalHistorySource: string;
+      medicationsSource: string;
+      allergiesSource: string;
+      redFlagsSource: string;
+      missingInfoSource: string;
+      aiSummarySource: string;
+    };
   } | null>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -546,15 +565,20 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
 
               {aiSummaryData ? (
                 <div className="grid gap-4 md:grid-cols-2">
-                  <SummaryField label="Chief Complaint" value={aiSummaryData.chiefComplaint} />
-                  <SummaryField label="History of Present Illness" value={aiSummaryData.historyOfPresentIllness} />
-                  <SummaryField label="Medical History" value={aiSummaryData.medicalHistory} />
-                  <SummaryField label="Medications" value={aiSummaryData.medications} />
-                  <SummaryField label="Allergies" value={aiSummaryData.allergies} />
-                  <SummaryField label="Red Flags Summary" value={aiSummaryData.redFlagsSummary} />
-                  <SummaryField label="Missing Info" value={aiSummaryData.missingInfo} className="md:col-span-2" />
+                  <SummaryField label="Chief Complaint" value={aiSummaryData.chiefComplaint} source={aiSummaryData.evidenceMapping.chiefComplaintSource} />
+                  <SummaryField label="History of Present Illness" value={aiSummaryData.historyOfPresentIllness} source={aiSummaryData.evidenceMapping.historySource} />
+                  <SummaryField label="Medical History" value={aiSummaryData.medicalHistory} source={aiSummaryData.evidenceMapping.medicalHistorySource} />
+                  <SummaryField label="Medications" value={aiSummaryData.medications} source={aiSummaryData.evidenceMapping.medicationsSource} />
+                  <SummaryField label="Allergies" value={aiSummaryData.allergies} source={aiSummaryData.evidenceMapping.allergiesSource} />
+                  <SummaryField label="Red Flags Summary" value={aiSummaryData.redFlagsSummary} source={aiSummaryData.evidenceMapping.redFlagsSource} />
+                  <SummaryField label="Missing Info" value={aiSummaryData.missingInfo} source={aiSummaryData.evidenceMapping.missingInfoSource} className="md:col-span-2" />
                   <div className="rounded-lg border border-white/5 bg-white/5 p-4 md:col-span-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">AI Clinical Summary</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">AI Clinical Summary</p>
+                      <span className="inline-flex items-center rounded-full border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-300">
+                        {aiSummaryData.evidenceMapping.aiSummarySource.replace(/_/g, " ")}
+                      </span>
+                    </div>
                     <p className="mt-1 text-sm text-slate-200">{aiSummaryData.aiSummary}</p>
                   </div>
                 </div>

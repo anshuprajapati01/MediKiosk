@@ -28,6 +28,16 @@ interface SummaryResult {
   redFlagsSummary: string;
   missingInfo: string;
   aiSummary: string;
+  evidenceMapping: {
+    chiefComplaintSource: string;
+    historySource: string;
+    medicalHistorySource: string;
+    medicationsSource: string;
+    allergiesSource: string;
+    redFlagsSource: string;
+    missingInfoSource: string;
+    aiSummarySource: string;
+  };
 }
 
 const MISSING = "Not provided";
@@ -64,21 +74,37 @@ function buildPrompt(body: PatientSummaryRequest): string {
 
   return `You are a clinical documentation assistant. Your role is to organize and summarize the patient's case information for a reviewing physician. You must NOT diagnose, interpret, or recommend treatment. You may only synthesize, rephrase, and organize the data provided.
 
+EVIDENCE TRACEABILITY REQUIREMENT:
+For every key clinical section below, you MUST include a "source" field that cites exactly where the information came from. Use one of these source labels:
+- "patient_answers" — information drawn from the PATIENT INTERVIEW ANSWERS section
+- "extracted_document" — information drawn from the UPLOADED DOCUMENT EXTRACTED DATA section
+- "red_flags" — information drawn from the DETECTED RED FLAGS section
+- "demographics" — information drawn from the PATIENT DEMOGRAPHICS section
+- "not_provided" — if the information is absent
+
 STRICT INSTRUCTIONS:
 - Output ONLY a raw JSON object. Do not include markdown fences, backticks, or any explanatory text.
-- If a piece of information is absent, output the exact string "Not provided".
+- If a piece of information is absent, output the exact string "Not provided" for the text field and "not_provided" for the source field.
 - Never diagnose, prescribe, or suggest treatment.
 
 Return JSON with exactly these keys:
 {
   "chiefComplaint": string,
+  "chiefComplaintSource": string,
   "historyOfPresentIllness": string,
+  "historySource": string,
   "medicalHistory": string,
+  "medicalHistorySource": string,
   "medications": string,
+  "medicationsSource": string,
   "allergies": string,
+  "allergiesSource": string,
   "redFlagsSummary": string,
+  "redFlagsSource": string,
   "missingInfo": string,
-  "aiSummary": string
+  "missingInfoSource": string,
+  "aiSummary": string,
+  "aiSummarySource": string
 }
 
 PATIENT DEMOGRAPHICS:
@@ -122,9 +148,17 @@ export async function POST(request: Request) {
 
     const systemPrompt = `You are a clinical documentation assistant. Your role is to organize and summarize the patient's case information for a reviewing physician. You must NOT diagnose, interpret, or recommend treatment. You may only synthesize, rephrase, and organize the data provided.
 
+EVIDENCE TRACEABILITY REQUIREMENT:
+For every key clinical section, include a "source" field citing exactly where the information came from. Use one of these source labels:
+- "patient_answers" — from the PATIENT INTERVIEW ANSWERS section
+- "extracted_document" — from the UPLOADED DOCUMENT EXTRACTED DATA section
+- "red_flags" — from the DETECTED RED FLAGS section
+- "demographics" — from the PATIENT DEMOGRAPHICS section
+- "not_provided" — if the information is absent
+
 STRICT INSTRUCTIONS:
 - Output ONLY a raw JSON object. Do not include markdown fences, backticks, or any explanatory text.
-- If a piece of information is absent, output the exact string "Not provided".
+- If a piece of information is absent, output the exact string "Not provided" for the text field and "not_provided" for the source field.
 - Never diagnose, prescribe, or suggest treatment.`;
 
     const userPrompt = buildPrompt(body);
@@ -147,9 +181,9 @@ STRICT INSTRUCTIONS:
       .replace(/\s*```$/i, "")
       .trim();
 
-    let parsed: SummaryResult;
+    let parsed: Record<string, unknown>;
     try {
-      parsed = JSON.parse(cleanedText) as SummaryResult;
+      parsed = JSON.parse(cleanedText) as Record<string, unknown>;
     } catch {
       return NextResponse.json(
         { error: "AI returned non-JSON output.", raw: rawText },
@@ -166,6 +200,16 @@ STRICT INSTRUCTIONS:
       redFlagsSummary: safeString(parsed.redFlagsSummary) || MISSING,
       missingInfo: safeString(parsed.missingInfo) || MISSING,
       aiSummary: safeString(parsed.aiSummary) || MISSING,
+      evidenceMapping: {
+        chiefComplaintSource: safeString(parsed.chiefComplaintSource) || "not_provided",
+        historySource: safeString(parsed.historySource) || "not_provided",
+        medicalHistorySource: safeString(parsed.medicalHistorySource) || "not_provided",
+        medicationsSource: safeString(parsed.medicationsSource) || "not_provided",
+        allergiesSource: safeString(parsed.allergiesSource) || "not_provided",
+        redFlagsSource: safeString(parsed.redFlagsSource) || "not_provided",
+        missingInfoSource: safeString(parsed.missingInfoSource) || "not_provided",
+        aiSummarySource: safeString(parsed.aiSummarySource) || "not_provided",
+      },
     };
 
     return NextResponse.json(result);
