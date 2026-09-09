@@ -87,6 +87,23 @@ function getPatientName(patient: PatientInfo | null | undefined): string {
   return "Unknown Patient";
 }
 
+function SummaryField({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div className={`rounded-lg border border-white/5 bg-white/5 p-4 ${className ?? ""}`.trim()}>
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="mt-1 text-sm text-slate-200">{value}</p>
+    </div>
+  );
+}
+
 export default function DoctorReviewPage({ interviewId }: { interviewId: string }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
@@ -106,6 +123,18 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
     };
   } | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiSummaryData, setAiSummaryData] = useState<{
+    chiefComplaint: string;
+    historyOfPresentIllness: string;
+    medicalHistory: string;
+    medications: string;
+    allergies: string;
+    redFlagsSummary: string;
+    missingInfo: string;
+    aiSummary: string;
+  } | null>(null);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -218,6 +247,14 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
     loadData();
   }, [interviewId]);
 
+  useEffect(() => {
+    if (!isLoading && answers.length > 0) {
+      handleGenerateAISummary();
+    }
+    // We intentionally only trigger once after initial load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, interviewId]);
+
   const redFlags = useMemo(
     () => evaluateRedFlags(answers, aiResult),
     [answers, aiResult],
@@ -240,6 +277,47 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
   }, {});
 
   const answerGroups = Object.values(groupedAnswers);
+
+  async function handleGenerateAISummary() {
+    setIsGeneratingSummary(true);
+    setSummaryError(null);
+    try {
+      const patientForSummary = patient
+        ? {
+            name: getPatientName(patient),
+            age: calculateAge(patient.dob ?? null),
+            gender: patient.gender ?? null,
+          }
+        : undefined;
+
+      const answersForSummary = answers.map((a) => ({
+        question: a.questions?.text ?? "",
+        answer: a.value ?? "",
+      }));
+
+      const response = await fetch("/api/generate-ai-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patient: patientForSummary,
+          answers: answersForSummary,
+          extractedData: aiResult,
+          redFlags,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.details || data.error || "Failed to generate AI summary.");
+      }
+
+      setAiSummaryData(data);
+    } catch (err) {
+      setSummaryError(err instanceof Error ? err.message : "An unexpected error occurred.");
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  }
 
   async function getDocumentViewUrl(docPath: string): Promise<string | null> {
     try {
@@ -420,6 +498,75 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
               </div>
             </div>
           )}
+
+          <div className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-slate-800/40 p-6 shadow-xl backdrop-blur-md">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none" />
+            <div className="relative flex flex-col gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707-.707M12 21v-1m0-12V3m-6.364-1.636l.707-.707m-2.728 14.728l.707-.707" />
+                  </svg>
+                  <h2 className="text-xl font-bold text-white">AI Clinical Summary</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGenerateAISummary}
+                  disabled={isGeneratingSummary}
+                  className="inline-flex items-center gap-2 rounded-lg border border-indigo-500/40 bg-slate-900/60 px-3 py-1.5 text-sm font-semibold text-indigo-300 transition-all hover:border-indigo-400 hover:text-indigo-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isGeneratingSummary ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Refresh Summary
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <span className="self-start inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                ⚠️ AI-assisted summary — requires clinician review.
+              </span>
+
+              {summaryError && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                  <p className="text-sm text-red-400">{summaryError}</p>
+                </div>
+              )}
+
+              {aiSummaryData ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <SummaryField label="Chief Complaint" value={aiSummaryData.chiefComplaint} />
+                  <SummaryField label="History of Present Illness" value={aiSummaryData.historyOfPresentIllness} />
+                  <SummaryField label="Medical History" value={aiSummaryData.medicalHistory} />
+                  <SummaryField label="Medications" value={aiSummaryData.medications} />
+                  <SummaryField label="Allergies" value={aiSummaryData.allergies} />
+                  <SummaryField label="Red Flags Summary" value={aiSummaryData.redFlagsSummary} />
+                  <SummaryField label="Missing Info" value={aiSummaryData.missingInfo} className="md:col-span-2" />
+                  <div className="rounded-lg border border-white/5 bg-white/5 p-4 md:col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">AI Clinical Summary</p>
+                    <p className="mt-1 text-sm text-slate-200">{aiSummaryData.aiSummary}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-white/5 bg-white/5 p-8 text-center">
+                  <p className="text-slate-400">
+                    {isGeneratingSummary ? "Generating clinical summary..." : "No AI summary generated yet."}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
 
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md dark:border-white/5 dark:bg-white/5">
             <div className="mb-6 flex items-center gap-3">
