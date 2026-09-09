@@ -94,9 +94,14 @@ export default function PatientInterviewPage() {
   const [interviewId, setInterviewId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [isReviewMode, setIsReviewMode] = useState(false);
+  const [patientId, setPatientId] = useState<string | null>(null);
   const [isResuming, setIsResuming] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [showUploadStep, setShowUploadStep] = useState(false);
+  const [documents, setDocuments] = useState<{ name: string; path: string; size: number; mime_type: string }[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const debouncedQuestionIdRef = useRef<string | null>(null);
   const resumeTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -282,6 +287,8 @@ export default function PatientInterviewPage() {
         return;
       }
 
+      setPatientId(patient.id);
+
       const { data: existingInterview, error: existingError } = await supabase
         .from("interviews")
         .select("id")
@@ -413,6 +420,7 @@ export default function PatientInterviewPage() {
 
   async function handleNext() {
     if (currentQuestionIndex >= visibleQuestions.length - 1) {
+      setShowUploadStep(true);
       return;
     }
     if (debounceTimerRef.current) {
@@ -447,6 +455,24 @@ export default function PatientInterviewPage() {
       }
 
       const supabase = createSupabaseClient();
+
+      if (documents.length > 0) {
+        const docsToInsert = documents.map((doc) => ({
+          patient_id: patientId,
+          interview_id: interviewId,
+          file_path: doc.path,
+          file_name: doc.name,
+          mime_type: doc.mime_type,
+          size: doc.size,
+          status: 'uploaded',
+        }));
+
+        const { error: docError } = await supabase.from('documents').insert(docsToInsert);
+        if (docError) {
+          console.error("Error inserting into documents table:", docError);
+        }
+      }
+
       const { error: updateError } = await supabase
         .from("interviews")
         .update({ status: "awaiting_review" })
@@ -475,6 +501,87 @@ export default function PatientInterviewPage() {
       return;
     }
 
+    setShowUploadStep(true);
+  }
+
+  async function handleUploadFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    if (!interviewId) {
+      setUploadError("Interview not found. Please refresh and try again.");
+      return;
+    }
+
+    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg'];
+    const maxSize = 10 * 1024 * 1024;
+    const supabase = createSupabaseClient();
+    const newDocs: { name: string; path: string; size: number; mime_type: string }[] = [];
+
+    setIsUploading(true);
+    setUploadError(null);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!allowedTypes.includes(file.type)) {
+        setUploadError(`Invalid file type: ${file.name}. Allowed: PDF, PNG, JPEG.`);
+        continue;
+      }
+      if (file.size > maxSize) {
+        setUploadError(`File too large: ${file.name}. Max size is 10MB.`);
+        continue;
+      }
+
+      const filePath = `${interviewId}/${Date.now()}-${i}-${file.name}`;
+      const { error } = await supabase.storage.from('medical-documents').upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+      if (error) {
+        setUploadError(`Upload failed for ${file.name}: ${error.message}`);
+        continue;
+      }
+
+      newDocs.push({ name: file.name, path: filePath, size: file.size, mime_type: file.type });
+    }
+
+    if (newDocs.length > 0) {
+      setDocuments((prev) => [...prev, ...newDocs]);
+    }
+    setIsUploading(false);
+  }
+
+  function handleRemoveDocument(index: number) {
+    setDocuments((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function getDocumentViewUrl(docPath: string): Promise<string | null> {
+    try {
+      const supabase = createSupabaseClient();
+      const { data, error } = await supabase.storage
+        .from('medical-documents')
+        .createSignedUrl(docPath, 3600);
+
+      if (error || !data?.signedUrl) {
+        console.error('Failed to create signed URL:', error);
+        return null;
+      }
+      return data.signedUrl;
+    } catch (err) {
+      console.error('Error creating signed URL:', err);
+      return null;
+    }
+  }
+
+  async function handleViewDocument(docPath: string) {
+    const url = await getDocumentViewUrl(docPath);
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }
+
+  async function handleContinueToReview() {
+    await saveCurrentAnswer();
+    setShowUploadStep(false);
     setIsReviewMode(true);
   }
 
@@ -562,7 +669,116 @@ export default function PatientInterviewPage() {
           )}
 
           <form onSubmit={(e) => e.preventDefault()} noValidate className="flex flex-col gap-8">
-            {isReviewMode ? (
+            {showUploadStep ? (
+              <div className="flex flex-col gap-6">
+                <h2 className="text-center text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+                  Upload Medical Documents
+                </h2>
+                <p className="text-center text-base text-zinc-600 dark:text-zinc-400">
+                  You may optionally upload supporting medical documents (PDF, PNG, JPEG) up to 10MB each.
+                </p>
+
+                <label
+                  htmlFor="medical-document-upload"
+                  className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 text-center transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                    isUploading
+                      ? 'border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800'
+                      : 'border-zinc-400 bg-zinc-50 hover:border-zinc-900 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:hover:border-zinc-100 dark:hover:bg-zinc-700'
+                  }`}
+                >
+                  <span className="text-4xl">📄</span>
+                  <span className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
+                    {isUploading ? 'Uploading...' : 'Click to choose files'}
+                  </span>
+                  <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                    PDF, PNG, or JPEG (max 10MB)
+                  </span>
+                  <input
+                    id="medical-document-upload"
+                    type="file"
+                    multiple
+                    accept="application/pdf,image/png,image/jpeg"
+                    className="hidden"
+                    disabled={isUploading}
+                    onChange={(e) => {
+                      handleUploadFiles(e.target.files);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+
+                {uploadError && (
+                  <div className="rounded-xl border-2 border-red-500 bg-red-50 p-4 text-sm text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200">
+                    {uploadError}
+                  </div>
+                )}
+
+                {documents.length > 0 && (
+                  <div className="flex flex-col gap-3">
+                    <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                      Attached Documents ({documents.length})
+                    </h3>
+                    <ul className="flex flex-col gap-2">
+                      {documents.map((doc, index) => (
+                        <li
+                          key={doc.path}
+                          className="flex items-center justify-between gap-3 rounded-xl border-2 border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800"
+                        >
+                          <div className="flex flex-col">
+                            <span className="truncate text-base font-medium text-zinc-900 dark:text-zinc-50">
+                              {doc.name}
+                            </span>
+                            <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                              {(doc.size / 1024 / 1024).toFixed(2)} MB
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <a
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleViewDocument(doc.path);
+                              }}
+                              className="text-blue-500 hover:text-blue-400 text-sm font-medium mr-4"
+                            >
+                              View
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDocument(index)}
+                              className="flex min-h-[44px] items-center justify-center rounded-lg border-2 border-red-300 px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:border-red-500 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-950"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentQuestionIndex((prev) => Math.max(0, prev - 1));
+                      setShowUploadStep(false);
+                    }}
+                    className="flex min-h-[50px] w-full items-center justify-center rounded-xl border-2 border-zinc-300 px-4 py-3 text-lg font-semibold text-zinc-900 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-800 sm:w-auto sm:px-8"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleContinueToReview}
+                    disabled={isUploading}
+                    className="flex min-h-[50px] w-full items-center justify-center rounded-xl bg-zinc-900 px-4 py-3 text-lg font-semibold text-white transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                  >
+                    Continue to Review
+                  </button>
+                </div>
+              </div>
+            ) : isReviewMode ? (
               <div className="flex flex-col gap-6">
                 <h2 className="text-center text-2xl font-bold text-zinc-900 dark:text-zinc-50">
                   Review Your Answers
@@ -630,6 +846,49 @@ export default function PatientInterviewPage() {
                     );
                   })}
                 </div>
+
+                {documents.length > 0 && (
+                  <div className="flex flex-col gap-4 rounded-xl border-2 border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-700 dark:bg-zinc-800">
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
+                      Uploaded Medical Documents
+                    </h3>
+                    <p className="text-base text-zinc-600 dark:text-zinc-400">
+                      The following documents are attached to your case.
+                    </p>
+                    <ul className="flex flex-col gap-2">
+                      {documents.map((doc) => (
+                        <li
+                          key={doc.path}
+                          className="flex items-center justify-between gap-3 rounded-lg border-2 border-zinc-200 bg-white p-4 dark:border-zinc-600 dark:bg-zinc-900"
+                        >
+                          <div className="flex flex-col">
+                            <span className="truncate text-base font-medium text-zinc-900 dark:text-zinc-50">
+                              {doc.name}
+                            </span>
+                            <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                              {(doc.size / 1024 / 1024).toFixed(2)} MB
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <a
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleViewDocument(doc.path);
+                              }}
+                              className="text-blue-500 hover:text-blue-400 text-sm font-medium mr-4"
+                            >
+                              View
+                            </a>
+                            <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                              Attached
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
                   <button
