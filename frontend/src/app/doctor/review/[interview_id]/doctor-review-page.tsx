@@ -93,7 +93,16 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
   const [patient, setPatient] = useState<PatientInfo | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [isRunningOcr, setIsRunningOcr] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [aiResult, setAiResult] = useState<{
+    extracted_text: string;
+    structured_data: {
+      tests: { name: string; date: string; result: string; reference_range: string }[];
+      medications: { name: string; dosage: string }[];
+      diagnoses: string[];
+    };
+  } | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -215,12 +224,41 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
     }
   }
 
-  async function handleRunOcr() {
-    setIsRunningOcr(true);
-    setTimeout(() => {
-      setIsRunningOcr(false);
-      alert("OCR extraction will be hooked up to the Gemini API in the next step.");
-    }, 800);
+  async function handleRunExtraction(doc: Document) {
+    setIsExtracting(true);
+    setAiError(null);
+    setAiResult(null);
+
+    try {
+      const supabase = createSupabaseClient();
+      const { data: signedData, error: signedError } = await supabase.storage
+        .from("medical-documents")
+        .createSignedUrl(doc.file_path, 60);
+
+      if (signedError || !signedData?.signedUrl) {
+        throw new Error("Could not generate a secure URL for the document.");
+      }
+
+      const fileUrl = signedData.signedUrl;
+
+      const response = await fetch("/api/extract-ocr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileUrl, mimeType: doc.mime_type }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.details || data.error || "OCR extraction failed");
+      }
+
+      setAiResult(data);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "An unexpected error occurred");
+    } finally {
+      setIsExtracting(false);
+    }
   }
 
   if (isLoading) {
@@ -401,33 +439,157 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
             )}
           </div>
 
-           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-slate-800/50 to-slate-900/80 border border-indigo-500/30 p-8 shadow-inner">
-            <div className="flex flex-col items-center justify-center gap-4 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900 text-2xl font-bold text-white shadow-lg dark:bg-zinc-100 dark:text-zinc-900">
-                AI
+<div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-slate-800/50 to-slate-900/80 border border-indigo-500/30 p-8 shadow-inner">
+            {aiResult ? (
+              <div className="space-y-6 animate-fade-in">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">AI Extraction Results</h3>
+                  <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">Completed</span>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                  <section className="space-y-4">
+                    <h4 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Structured Data
+                    </h4>
+
+                    {aiResult.structured_data.tests.length > 0 && (
+                      <div className="space-y-3">
+                        <h5 className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Lab Tests</h5>
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-sm backdrop-blur-md dark:border-white/5 dark:bg-white/5 overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-white/10">
+                                <th className="text-left py-2 px-3 font-semibold text-slate-400">Test Name</th>
+                                <th className="text-left py-2 px-3 font-semibold text-slate-400">Date</th>
+                                <th className="text-left py-2 px-3 font-semibold text-slate-400">Result</th>
+                                <th className="text-left py-2 px-3 font-semibold text-slate-400">Reference Range</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {aiResult.structured_data.tests.map((test, idx) => (
+                                <tr key={idx} className="hover:bg-white/5 transition-colors">
+                                  <td className="py-2 px-3 text-white">{test.name}</td>
+                                  <td className="py-2 px-3 text-slate-400">{test.date || "—"}</td>
+                                  <td className="py-2 px-3 text-white">{test.result || "—"}</td>
+                                  <td className="py-2 px-3 text-slate-400">{test.reference_range || "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {aiResult.structured_data.medications.length > 0 && (
+                      <div className="space-y-3">
+                        <h5 className="text-xs font-semibold uppercase tracking-wider text-indigo-400">Medications</h5>
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-sm backdrop-blur-md dark:border-white/5 dark:bg-white/5">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {aiResult.structured_data.medications.map((med, idx) => (
+                              <div key={idx} className="rounded-lg border border-white/10 bg-white/5 p-3">
+                                <p className="font-medium text-white">{med.name}</p>
+                                <p className="text-xs text-slate-400">{med.dosage || "Dosage not specified"}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {aiResult.structured_data.diagnoses.length > 0 && (
+                      <div className="space-y-3">
+                        <h5 className="text-xs font-semibold uppercase tracking-wider text-amber-400">Diagnoses</h5>
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-sm backdrop-blur-md dark:border-white/5 dark:bg-white/5">
+                          <ul className="space-y-2">
+                            {aiResult.structured_data.diagnoses.map((diag, idx) => (
+                              <li key={idx} className="flex items-center gap-2 text-sm text-white">
+                                <span className="h-2 w-2 rounded-full bg-amber-400" />
+                                {diag}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+
+                    {(aiResult.structured_data.tests.length === 0 &&
+                      aiResult.structured_data.medications.length === 0 &&
+                      aiResult.structured_data.diagnoses.length === 0) && (
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center shadow-sm backdrop-blur-md dark:border-white/5 dark:bg-white/5">
+                        <p className="text-slate-400">No structured clinical data detected in this document.</p>
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="space-y-4 md:col-span-2">
+                    <h4 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
+                      Raw OCR Text
+                    </h4>
+                    <div className="rounded-xl border border-white/10 bg-zinc-900/50 p-4 font-mono text-xs text-slate-300 max-h-96 overflow-y-auto whitespace-pre-wrap">
+                      {aiResult.extracted_text || "No text extracted"}
+                    </div>
+                  </section>
+                </div>
+
+                <div className="rounded-xl border-2 border-amber-500/30 bg-amber-500/10 p-4">
+                  <p className="flex items-start gap-2 text-sm font-medium text-amber-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span>⚠️ OCR/AI extraction is not medically verified truth. Always verify with the source document.</span>
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Document AI Analysis</h3>
-                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                  Extract structured clinical data from uploaded documents using AI.
-                </p>
-              </div>
-               <button
-                 type="button"
-                 onClick={handleRunOcr}
-                 disabled={isRunningOcr}
-                 className="mt-2 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 px-6 py-3 font-bold text-white shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-transform hover:scale-105 focus:ring-2 focus:ring-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-               >
-                {isRunningOcr ? (
-                  <>
-                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    Processing...
-                  </>
-                ) : (
-                  "Run OCR Extraction"
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-4 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900 text-2xl font-bold text-white shadow-lg dark:bg-zinc-100 dark:text-zinc-900">
+                  AI
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Document AI Analysis</h3>
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                    Extract structured clinical data from uploaded documents using AI.
+                  </p>
+                </div>
+                {aiError && (
+                  <div className="w-full max-w-md rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-left">
+                    <p className="text-sm text-red-400">{aiError}</p>
+                  </div>
                 )}
-              </button>
-            </div>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  {documents.map((doc) => (
+                    <button
+                      key={doc.id}
+                      type="button"
+                      onClick={() => handleRunExtraction(doc)}
+                      disabled={isExtracting}
+                      className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 px-6 py-3 font-bold text-white shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-transform hover:scale-105 focus:ring-2 focus:ring-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isExtracting ? (
+                        <>
+                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          Analyzing Document...
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Run OCR Extraction
+                        </>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
