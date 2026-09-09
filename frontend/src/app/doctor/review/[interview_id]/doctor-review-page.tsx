@@ -154,6 +154,10 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
   } | null>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [doctorNotes, setDoctorNotes] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -396,8 +400,44 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
       setAiResult(data);
     } catch (err) {
       setAiError(err instanceof Error ? err.message : "An unexpected error occurred");
+  } finally {
+    setIsExtracting(false);
+  }
+}
+
+  async function handleDoctorAction(actionStatus: "approved" | "rejected") {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmitSuccess(null);
+    setSubmitError(null);
+
+    try {
+      const supabase = createSupabaseClient();
+
+      const resolvedStatus = actionStatus === "approved" ? "completed" : "awaiting_review";
+      const { error: statusError } = await supabase
+        .from("interviews")
+        .update({ status: resolvedStatus })
+        .eq("id", interviewId);
+
+      if (statusError) {
+        throw new Error(statusError.message);
+      }
+
+      const verb = actionStatus === "approved" ? "approved" : "rejected";
+      setSubmitSuccess(`Case ${verb} successfully. Redirecting to dashboard...`);
+
+      setTimeout(() => {
+        router.push("/doctor/dashboard");
+      }, 1800);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred while finalizing the case.",
+      );
     } finally {
-      setIsExtracting(false);
+      setIsSubmitting(false);
     }
   }
 
@@ -840,6 +880,96 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-md dark:border-white/5 dark:bg-white/5">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none" />
+            <div className="relative flex flex-col gap-5">
+              <div>
+                <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Clinical Sign-off &amp; Decision</h2>
+                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                  Review complete. Provide clinical notes and finalize case disposition.
+                </p>
+              </div>
+
+              {submitSuccess ? (
+                <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15l2.55-2.55L15 14.25l-3.75 3.75L7.5 15z" />
+                    <circle cx={12} cy={12} r={9} />
+                  </svg>
+                  <span className="text-sm font-medium">{submitSuccess}</span>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label htmlFor="doctor-notes" className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Doctor Clinical Notes / Prescription
+                    </label>
+                    <textarea
+                      id="doctor-notes"
+                      value={doctorNotes}
+                      onChange={(e) => setDoctorNotes(e.target.value)}
+                      disabled={isSubmitting}
+                      rows={5}
+                      placeholder="Enter clinical notes, prescriptions, key findings, or revision requests."
+                      className="mt-2 w-full resize-y rounded-xl border border-white/10 bg-zinc-900/50 p-4 text-sm text-zinc-100 placeholder-zinc-500 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:cursor-not-allowed dark:bg-zinc-800/50 dark:text-zinc-100"
+                    />
+                  </div>
+
+                  {submitError && (
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                      <p className="text-sm text-red-400">{submitError}</p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => handleDoctorAction("approved")}
+                      disabled={isSubmitting}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3 font-bold text-white shadow-[0_0_20px_rgba(16,185,129,0.4)] transition transform hover:scale-[1.02] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] focus:ring-2 focus:ring-emerald-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          Approving...
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15l2.55-2.55L15 14.25l-3.75 3.75L7.5 15z" />
+                            <circle cx={12} cy={12} r={9} />
+                          </svg>
+                          Approve Case
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDoctorAction("rejected")}
+                      disabled={isSubmitting}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-6 py-3 font-bold text-white shadow-[0_0_20px_rgba(244,63,94,0.4)] transition transform hover:scale-[1.02] hover:shadow-[0_0_25px_rgba(244,63,94,0.5)] focus:ring-2 focus:ring-rose-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          Rejecting...
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.172 16.172L12 19.043l2.828-2.871A9.953 9.953 0 0015 9.5a7 7 0 10-6 6.727v.001z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Reject / Request Revision
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
