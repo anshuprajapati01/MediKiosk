@@ -6,7 +6,7 @@ const modules = [
   {
     title: "Patient Intake Kiosk",
     description: "AI-assisted patient onboarding and symptom analysis.",
-    route: "/patient/interview",
+    route: "/patient",
     gradient: "from-indigo-500 to-indigo-600",
     shadow: "rgba(99,102,241,0.5)",
     border: "border-indigo-500/30",

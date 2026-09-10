@@ -102,6 +102,14 @@ export default function PatientInterviewPage() {
   const [documents, setDocuments] = useState<{ name: string; path: string; size: number; mime_type: string }[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [step, setStep] = useState<'registration' | 'interview'>('registration');
+  const [fullName, setFullName] = useState('');
+  const [dob, setDob] = useState('');
+  const [gender, setGender] = useState('');
+  const [isCreatingPatient, setIsCreatingPatient] = useState(false);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const [hospitalId, setHospitalId] = useState<string | null>(null);
+  const [questionnaireId, setQuestionnaireId] = useState<string | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const debouncedQuestionIdRef = useRef<string | null>(null);
   const resumeTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -220,7 +228,7 @@ export default function PatientInterviewPage() {
     };
   }, []);
 
-  useEffect(() => {
+   useEffect(() => {
     async function loadQuestionnaire() {
       try {
         const supabase = createSupabaseClient();
@@ -259,7 +267,19 @@ export default function PatientInterviewPage() {
       }
 
       setQuestions(fetchedQuestions || []);
+      setQuestionnaireId(questionnaire.id);
       console.log("Fetched Questions Data:", fetchedQuestions);
+
+      const { data: hospitalData } = await supabase
+        .from("hospitals")
+        .select("id")
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
+
+      const fallbackHospitalId = '00000000-0000-0000-0000-000000000000';
+      const resolvedHospitalId = hospitalData?.id || fallbackHospitalId;
+      setHospitalId(resolvedHospitalId);
 
       const {
         data: { session },
@@ -270,98 +290,24 @@ export default function PatientInterviewPage() {
         console.error("Auth session error:", sessionError);
       }
 
-      if (!session?.user?.id) {
-        router.push("/patient/login");
-        return;
-      }
+      if (session?.user?.id) {
+        const { data: patient, error: patientError } = await supabase
+          .from("patients")
+          .select("id, full_name, dob, gender")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
 
-      const { data: patient, error: patientError } = await supabase
-        .from("patients")
-        .select("id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-
-      if (patientError || !patient) {
-        setError("Patient profile not found. Please complete onboarding first.");
-        setIsLoading(false);
-        return;
-      }
-
-      setPatientId(patient.id);
-
-      const { data: existingInterview, error: existingError } = await supabase
-        .from("interviews")
-        .select("id")
-        .eq("patient_id", patient.id)
-        .eq("hospital_id", "11111111-1111-1111-1111-111111111111")
-        .eq("questionnaire_id", questionnaire.id)
-        .in("status", ["draft", "in_progress"])
-        .limit(1)
-        .maybeSingle();
-
-      if (existingError) {
-        console.error("Existing interview fetch error:", existingError);
-        setError("Unable to check existing interview.");
-        setIsLoading(false);
-        return;
-      }
-
-      if (existingInterview) {
-        setInterviewId(existingInterview.id);
-
-        const { data: existingAnswers, error: answersError } = await supabase
-          .from("answers")
-          .select("question_id, value")
-          .eq("interview_id", existingInterview.id);
-
-        if (answersError) {
-          setError("Unable to load existing answers.");
+        if (!patientError && patient) {
+          setPatientId(patient.id);
+          setFullName(patient.full_name ?? "");
+          setDob(patient.dob ?? "");
+          setGender(patient.gender ?? "");
           setIsLoading(false);
           return;
         }
-
-        const preFilled: AnswerState = {};
-        existingAnswers?.forEach((a) => {
-          if (a.value) preFilled[a.question_id] = a.value;
-        });
-        setAnswers(preFilled);
-
-        const questionsData = fetchedQuestions || [];
-        if (questionsData.length > 0) {
-          const visibleQuestionsData = questionsData.filter((q) => isQuestionVisible(q, preFilled));
-          const resumeIndex = visibleQuestionsData.findIndex((q) => {
-            const answer = existingAnswers?.find((a) => a.question_id === q.id);
-            return !answer || !answer.value || answer.value.trim().length === 0;
-          });
-          const finalIndex = resumeIndex >= 0 ? resumeIndex : Math.max(0, visibleQuestionsData.length - 1);
-          setCurrentQuestionIndex(finalIndex);
-
-          if (finalIndex > 0) {
-            setIsResuming(true);
-          }
-        }
-      } else {
-        const { data: newInterview, error: createError } = await supabase
-          .from("interviews")
-          .insert({
-            patient_id: patient.id,
-            hospital_id: "11111111-1111-1111-1111-111111111111",
-            questionnaire_id: questionnaire.id,
-            intake_type: "web",
-            status: "in_progress",
-          })
-          .select("id")
-          .single();
-
-        if (createError || !newInterview) {
-          setError("Unable to start interview. Please try again later.");
-          setIsLoading(false);
-          return;
-        }
-
-        setInterviewId(newInterview.id);
       }
 
+      setStep('registration');
       setIsLoading(false);
     } catch (err) {
       console.error("Interview load error:", err);
@@ -504,6 +450,121 @@ export default function PatientInterviewPage() {
     setShowUploadStep(true);
   }
 
+  async function handleStartInterview(e?: React.FormEvent) {
+    e?.preventDefault();
+
+    if (isCreatingPatient) {
+      return;
+    }
+
+    if (!fullName.trim()) {
+      setRegistrationError("Full name is required");
+      return;
+    }
+
+    if (!dob) {
+      setRegistrationError("Date of birth is required");
+      return;
+    }
+
+    if (!gender) {
+      setRegistrationError("Gender is required");
+      return;
+    }
+
+    if (!hospitalId || !questionnaireId) {
+      setRegistrationError("System not ready. Please refresh and try again.");
+      return;
+    }
+
+    setIsCreatingPatient(true);
+    setRegistrationError(null);
+
+    try {
+      const supabase = createSupabaseClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      let resolvedPatientId = patientId;
+
+      if (!resolvedPatientId) {
+        const mrn = `MK-${Math.floor(Math.random() * 1000000)}`;
+
+        const { data: patientData, error: patientError } = await supabase
+          .from("patients")
+          .insert({
+            user_id: session?.user?.id || null,
+            mrn,
+            full_name: fullName.trim(),
+            dob,
+            gender,
+          })
+          .select("id")
+          .single();
+
+        if (patientError || !patientData) {
+          setRegistrationError("Unable to create patient profile. Please try again.");
+          setIsCreatingPatient(false);
+          return;
+        }
+
+        resolvedPatientId = patientData.id;
+        setPatientId(resolvedPatientId);
+      }
+
+      const { data: existingInterview, error: existingError } = await supabase
+        .from("interviews")
+        .select("id")
+        .eq("patient_id", resolvedPatientId)
+        .in("status", ["in_progress", "awaiting_review"])
+        .maybeSingle();
+
+      if (existingError) {
+        console.error("Error checking existing interview:", existingError);
+        setRegistrationError("Unable to check existing interview. Please try again.");
+        setIsCreatingPatient(false);
+        return;
+      }
+
+      if (existingInterview) {
+        console.log("Found existing active interview:", existingInterview.id);
+        setInterviewId(existingInterview.id);
+        setStep('interview');
+        setIsCreatingPatient(false);
+        return;
+      }
+
+      console.log("Attempting to insert new interview for patient:", resolvedPatientId);
+      const { data: newInterview, error: createError } = await supabase
+        .from("interviews")
+        .insert({
+          patient_id: resolvedPatientId,
+          hospital_id: hospitalId,
+          questionnaire_id: questionnaireId,
+          status: "in_progress",
+        })
+        .select("id")
+        .single();
+
+      if (createError || !newInterview) {
+        console.error("Error creating new interview:", createError);
+        setRegistrationError("Unable to start interview. Please try again.");
+        setIsCreatingPatient(false);
+        return;
+      }
+
+      console.log("Created new interview:", newInterview.id);
+      setInterviewId(newInterview.id);
+      setStep('interview');
+      setIsCreatingPatient(false);
+    } catch (err) {
+      console.error("Registration error:", err);
+      setRegistrationError("An unexpected error occurred. Please try again.");
+      setIsCreatingPatient(false);
+    }
+  }
+
   async function handleUploadFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     if (!interviewId) {
@@ -626,10 +687,17 @@ export default function PatientInterviewPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-white dark:bg-black">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-zinc-100" />
-          <p className="text-lg text-zinc-600 dark:text-zinc-400">Preparing your clinical assessment...</p>
+      <div className="relative min-h-screen overflow-hidden bg-black">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-indigo-600/20 blur-[120px]" />
+          <div className="absolute top-1/3 -right-40 h-[500px] w-[500px] rounded-full bg-purple-600/20 blur-[120px]" />
+          <div className="absolute -bottom-40 left-1/3 h-[500px] w-[500px] rounded-full bg-emerald-600/15 blur-[120px]" />
+        </div>
+        <div className="relative z-10 flex min-h-screen flex-1 items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-700 border-t-indigo-400" />
+            <p className="text-lg text-zinc-400">Preparing your clinical assessment...</p>
+          </div>
         </div>
       </div>
     );
@@ -637,11 +705,18 @@ export default function PatientInterviewPage() {
 
   if (error) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-white dark:bg-black">
-        <div className="w-full max-w-md px-6">
-          <div className="rounded-2xl border-2 border-red-500 bg-red-50 p-8 text-center dark:bg-red-950">
-            <h2 className="mb-2 text-xl font-semibold text-red-900 dark:text-red-200">Something went wrong</h2>
-            <p className="text-base text-red-800 dark:text-red-300">{error}</p>
+      <div className="relative min-h-screen overflow-hidden bg-black">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-indigo-600/20 blur-[120px]" />
+          <div className="absolute top-1/3 -right-40 h-[500px] w-[500px] rounded-full bg-purple-600/20 blur-[120px]" />
+          <div className="absolute -bottom-40 left-1/3 h-[500px] w-[500px] rounded-full bg-emerald-600/15 blur-[120px]" />
+        </div>
+        <div className="relative z-10 flex min-h-screen flex-1 items-center justify-center py-10">
+          <div className="w-full max-w-md px-6">
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-8 text-center shadow-2xl backdrop-blur-md">
+              <h2 className="mb-2 text-xl font-semibold text-red-200">Something went wrong</h2>
+              <p className="text-base text-red-300">{error}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -652,45 +727,141 @@ export default function PatientInterviewPage() {
   const displayIndex = Math.min(currentQuestionIndex, Math.max(0, visibleQuestions.length - 1));
 
   return (
-    <div className="flex flex-1 items-start justify-center bg-zinc-50 py-10 dark:bg-black">
-      <div className="w-full max-w-3xl px-6">
-        <div className="rounded-2xl border-2 border-zinc-900 bg-white p-8 shadow-lg dark:border-zinc-100 dark:bg-zinc-900">
-          <h1 className="mb-2 text-center text-4xl font-bold text-zinc-900 dark:text-zinc-50">
+    <div className="relative min-h-screen overflow-hidden bg-black py-10">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-indigo-600/20 blur-[120px]" />
+        <div className="absolute top-1/3 -right-40 h-[500px] w-[500px] rounded-full bg-purple-600/20 blur-[120px]" />
+        <div className="absolute -bottom-40 left-1/3 h-[500px] w-[500px] rounded-full bg-emerald-600/15 blur-[120px]" />
+      </div>
+
+      <div className="relative z-10 flex w-full justify-center px-6">
+        <div className="w-full max-w-3xl rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md">
+          <h1 className="mb-2 text-center text-4xl font-bold bg-gradient-to-r from-indigo-400 to-emerald-400 bg-clip-text text-transparent">
             Clinical Interview
           </h1>
-          <p className="mb-8 text-center text-base text-zinc-600 dark:text-zinc-400">
+          <p className="mb-8 text-center text-base text-zinc-400">
             Please answer the following questions to the best of your ability.
           </p>
 
           {isResuming && (
-            <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-center text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
+            <div className="mb-6 rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4 text-center text-sm text-indigo-200">
               You have an unfinished assessment. Resuming where you left off.
             </div>
           )}
 
-          <form onSubmit={(e) => e.preventDefault()} noValidate className="flex flex-col gap-8">
-            {showUploadStep ? (
+          <form onSubmit={handleStartInterview} noValidate className="flex flex-col gap-8">
+            {step === 'registration' ? (
               <div className="flex flex-col gap-6">
-                <h2 className="text-center text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+                <h2 className="text-center text-2xl font-bold text-white">
+                  Patient Registration
+                </h2>
+                <p className="text-center text-base text-zinc-400">
+                  Please enter your details to begin the clinical interview.
+                </p>
+
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="fullName" className="text-sm font-medium text-zinc-300">
+                      Full Name <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      id="fullName"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      disabled={isCreatingPatient || Boolean(patientId)}
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-white placeholder-zinc-500 transition-all focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      placeholder="Enter your full name"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="dob" className="text-sm font-medium text-zinc-300">
+                      Date of Birth <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      id="dob"
+                      type="date"
+                      value={dob}
+                      onChange={(e) => setDob(e.target.value)}
+                      disabled={isCreatingPatient || Boolean(patientId)}
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-white placeholder-zinc-500 transition-all focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium text-zinc-300">
+                      Gender <span className="text-red-400">*</span>
+                    </label>
+                    <div className="flex gap-3">
+                      {[
+                        { value: 'male', label: 'Male' },
+                        { value: 'female', label: 'Female' },
+                        { value: 'other', label: 'Other' },
+                      ].map((option) => {
+                        const isActive = gender === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setGender(option.value)}
+                            disabled={isCreatingPatient || Boolean(patientId)}
+                            className={`flex-1 rounded-full border py-2.5 text-sm font-semibold transition-all focus:outline-none ${
+                              isActive
+                                ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300 shadow-[0_0_10px_rgba(99,102,241,0.2)]'
+                                : 'bg-white/5 border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-300'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {registrationError && (
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+                    {registrationError}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isCreatingPatient}
+                  className="flex min-h-[50px] w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-3 text-base font-semibold text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all hover:from-indigo-400 hover:to-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isCreatingPatient
+                    ? patientId
+                      ? "Starting..."
+                      : "Creating..."
+                    : patientId
+                      ? "Confirm & Start Interview"
+                      : "Start Interview"}
+                </button>
+              </div>
+            ) : showUploadStep ? (
+              <div className="flex flex-col gap-6">
+                <h2 className="text-center text-2xl font-bold text-white">
                   Upload Medical Documents
                 </h2>
-                <p className="text-center text-base text-zinc-600 dark:text-zinc-400">
+                <p className="text-center text-base text-zinc-400">
                   You may optionally upload supporting medical documents (PDF, PNG, JPEG) up to 10MB each.
                 </p>
 
                 <label
                   htmlFor="medical-document-upload"
-                  className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 text-center transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                  className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 text-center transition-colors focus:ring-2 focus:ring-indigo-400 focus:outline-none ${
                     isUploading
-                      ? 'border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800'
-                      : 'border-zinc-400 bg-zinc-50 hover:border-zinc-900 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:hover:border-zinc-100 dark:hover:bg-zinc-700'
+                      ? 'border-zinc-600 bg-zinc-800/50'
+                      : 'border-white/20 bg-white/5 hover:border-indigo-400 hover:bg-white/10'
                   }`}
                 >
                   <span className="text-4xl">📄</span>
-                  <span className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
+                  <span className="text-base font-semibold text-white">
                     {isUploading ? 'Uploading...' : 'Click to choose files'}
                   </span>
-                  <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                  <span className="text-sm text-zinc-400">
                     PDF, PNG, or JPEG (max 10MB)
                   </span>
                   <input
@@ -708,27 +879,27 @@ export default function PatientInterviewPage() {
                 </label>
 
                 {uploadError && (
-                  <div className="rounded-xl border-2 border-red-500 bg-red-50 p-4 text-sm text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200">
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
                     {uploadError}
                   </div>
                 )}
 
                 {documents.length > 0 && (
                   <div className="flex flex-col gap-3">
-                    <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                    <h3 className="text-lg font-semibold text-white">
                       Attached Documents ({documents.length})
                     </h3>
                     <ul className="flex flex-col gap-2">
                       {documents.map((doc, index) => (
                         <li
                           key={doc.path}
-                          className="flex items-center justify-between gap-3 rounded-xl border-2 border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800"
+                          className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 p-4"
                         >
                           <div className="flex flex-col">
-                            <span className="truncate text-base font-medium text-zinc-900 dark:text-zinc-50">
+                            <span className="truncate text-base font-medium text-white">
                               {doc.name}
                             </span>
-                            <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                            <span className="text-sm text-zinc-400">
                               {(doc.size / 1024 / 1024).toFixed(2)} MB
                             </span>
                           </div>
@@ -739,14 +910,14 @@ export default function PatientInterviewPage() {
                                 e.preventDefault();
                                 handleViewDocument(doc.path);
                               }}
-                              className="text-blue-500 hover:text-blue-400 text-sm font-medium mr-4"
+                              className="text-indigo-400 hover:text-indigo-300 text-sm font-medium mr-4"
                             >
                               View
                             </a>
                             <button
                               type="button"
                               onClick={() => handleRemoveDocument(index)}
-                              className="flex min-h-[44px] items-center justify-center rounded-lg border-2 border-red-300 px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:border-red-500 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-950"
+                              className="flex min-h-[44px] items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-red-500/30 hover:bg-red-500/10 focus:ring-2 focus:ring-red-400 focus:outline-none"
                             >
                               Remove
                             </button>
@@ -764,7 +935,7 @@ export default function PatientInterviewPage() {
                       setCurrentQuestionIndex((prev) => Math.max(0, prev - 1));
                       setShowUploadStep(false);
                     }}
-                    className="flex min-h-[50px] w-full items-center justify-center rounded-xl border-2 border-zinc-300 px-4 py-3 text-lg font-semibold text-zinc-900 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-800 sm:w-auto sm:px-8"
+                    className="flex min-h-[50px] w-full items-center justify-center rounded-full border border-white/10 bg-white/5 px-6 py-3 text-base font-semibold text-zinc-300 transition-all hover:text-white hover:bg-white/10 focus:outline-none sm:w-auto"
                   >
                     Back
                   </button>
@@ -772,7 +943,7 @@ export default function PatientInterviewPage() {
                     type="button"
                     onClick={handleContinueToReview}
                     disabled={isUploading}
-                    className="flex min-h-[50px] w-full items-center justify-center rounded-xl bg-zinc-900 px-4 py-3 text-lg font-semibold text-white transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                    className="flex min-h-[50px] w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-3 text-base font-semibold text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all hover:from-indigo-400 hover:to-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
                     Continue to Review
                   </button>
@@ -780,10 +951,10 @@ export default function PatientInterviewPage() {
               </div>
             ) : isReviewMode ? (
               <div className="flex flex-col gap-6">
-                <h2 className="text-center text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+                <h2 className="text-center text-2xl font-bold text-white">
                   Review Your Answers
                 </h2>
-                <p className="text-center text-base text-zinc-600 dark:text-zinc-400">
+                <p className="text-center text-base text-zinc-400">
                   Please review your responses before submitting.
                 </p>
 
@@ -795,39 +966,39 @@ export default function PatientInterviewPage() {
                     return (
                       <div
                         key={question.id}
-                        className={`rounded-xl border-2 p-5 transition-colors ${
+                        className={`rounded-xl border p-5 transition-colors ${
                           isEmpty
-                            ? 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950'
-                            : 'border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800'
+                            ? 'border-amber-500/30 bg-amber-500/10'
+                            : 'border-white/10 bg-white/5'
                         }`}
                       >
-                         <div className="flex items-start justify-between gap-4">
-                         <div className="flex-1">
-                           {getSectionTitle(question) && (
-                             <div className="mb-4">
-                               <span className="text-sm font-semibold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full dark:bg-emerald-900/50 dark:text-emerald-400">
-                                 {getSectionTitle(question)}
-                               </span>
-                             </div>
-                           )}
-                           {question.section_id === '60f7a39e-754e-440f-99b6-eebfe01ebecd' && (
-                             <div className="mb-4">
-                               <span className="text-sm font-semibold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full dark:bg-emerald-900/50 dark:text-emerald-400">
-                                 AYUSH Lifestyle Assessment
-                               </span>
-                             </div>
-                           )}
-                           <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            {getSectionTitle(question) && (
+                              <div className="mb-4">
+                                <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
+                                  {getSectionTitle(question)}
+                                </span>
+                              </div>
+                            )}
+                            {question.section_id === '60f7a39e-754e-440f-99b6-eebfe01ebecd' && (
+                              <div className="mb-4">
+                                <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
+                                  AYUSH Lifestyle Assessment
+                                </span>
+                              </div>
+                            )}
+                            <p className="text-lg font-semibold text-white">
                               <span className={`mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${
                                 isEmpty
-                                  ? 'bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100'
-                                  : 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                                  ? 'bg-amber-500/20 text-amber-300'
+                                  : 'bg-gradient-to-br from-indigo-500 to-emerald-500 text-white'
                               }`}>
                                 {index + 1}
                               </span>
                               {question.text}
                             </p>
-                            <p className={`mt-2 text-base ${isEmpty ? 'text-zinc-400 italic' : 'text-zinc-700 dark:text-zinc-300'}`}>
+                            <p className={`mt-2 text-base ${isEmpty ? 'text-zinc-500 italic' : 'text-zinc-300'}`}>
                               {isEmpty ? 'No answer provided' : answer}
                             </p>
                           </div>
@@ -837,7 +1008,7 @@ export default function PatientInterviewPage() {
                               setCurrentQuestionIndex(index);
                               setIsReviewMode(false);
                             }}
-                            className="flex min-h-[50px] w-auto items-center justify-center rounded-lg border-2 border-zinc-300 px-4 py-3 text-sm font-semibold text-zinc-900 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-700"
+                            className="flex min-h-[50px] w-auto items-center justify-center rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-zinc-300 transition-all hover:text-white hover:bg-white/10 focus:outline-none"
                           >
                             Edit
                           </button>
@@ -848,24 +1019,24 @@ export default function PatientInterviewPage() {
                 </div>
 
                 {documents.length > 0 && (
-                  <div className="flex flex-col gap-4 rounded-xl border-2 border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-700 dark:bg-zinc-800">
-                    <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
+                  <div className="flex flex-col gap-4 rounded-xl border border-white/10 bg-white/5 p-6">
+                    <h3 className="text-xl font-bold text-white">
                       Uploaded Medical Documents
                     </h3>
-                    <p className="text-base text-zinc-600 dark:text-zinc-400">
+                    <p className="text-base text-zinc-400">
                       The following documents are attached to your case.
                     </p>
                     <ul className="flex flex-col gap-2">
                       {documents.map((doc) => (
                         <li
                           key={doc.path}
-                          className="flex items-center justify-between gap-3 rounded-lg border-2 border-zinc-200 bg-white p-4 dark:border-zinc-600 dark:bg-zinc-900"
+                          className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 p-4"
                         >
                           <div className="flex flex-col">
-                            <span className="truncate text-base font-medium text-zinc-900 dark:text-zinc-50">
+                            <span className="truncate text-base font-medium text-white">
                               {doc.name}
                             </span>
-                            <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                            <span className="text-sm text-zinc-400">
                               {(doc.size / 1024 / 1024).toFixed(2)} MB
                             </span>
                           </div>
@@ -876,11 +1047,11 @@ export default function PatientInterviewPage() {
                                 e.preventDefault();
                                 handleViewDocument(doc.path);
                               }}
-                              className="text-blue-500 hover:text-blue-400 text-sm font-medium mr-4"
+                              className="text-indigo-400 hover:text-indigo-300 text-sm font-medium mr-4"
                             >
                               View
                             </a>
-                            <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                            <span className="text-sm font-semibold text-emerald-400">
                               Attached
                             </span>
                           </div>
@@ -898,7 +1069,7 @@ export default function PatientInterviewPage() {
                       setIsReviewMode(false);
                     }}
                     disabled={currentQuestionIndex === 0}
-                    className="flex min-h-[50px] w-full items-center justify-center rounded-xl border-2 border-zinc-300 px-4 py-3 text-lg font-semibold text-zinc-900 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-800 sm:w-auto sm:px-8"
+                    className="flex min-h-[50px] w-full items-center justify-center rounded-full border border-white/10 bg-white/5 px-6 py-3 text-base font-semibold text-zinc-300 transition-all hover:text-white hover:bg-white/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
                     Back
                   </button>
@@ -907,7 +1078,7 @@ export default function PatientInterviewPage() {
                     type="button"
                     onClick={handleSubmit}
                     disabled={!hasAnswers || isSubmitting}
-                    className="flex min-h-[50px] w-full items-center justify-center rounded-xl bg-zinc-900 px-4 py-3 text-lg font-semibold text-white transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                    className="flex min-h-[50px] w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-3 text-base font-semibold text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all hover:from-indigo-400 hover:to-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
                     {isSubmitting ? "Submitting..." : "Submit Case"}
                   </button>
@@ -922,15 +1093,15 @@ export default function PatientInterviewPage() {
 
                   return (
                     <div className="flex flex-col gap-2" aria-live="polite" aria-label="Interview progress">
-                      <div className="flex items-center justify-between text-base font-medium text-zinc-700 dark:text-zinc-300">
+                      <div className="flex items-center justify-between text-base font-medium text-zinc-300">
                         <span>
                           Question {displayIndex + 1} of {visibleQuestions.length}
                         </span>
                         <span>{progressPercentage}%</span>
                       </div>
-                      <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800" role="progressbar" aria-valuenow={progressPercentage} aria-valuemin={0} aria-valuemax={100} aria-label="Question progress">
+                      <div className="h-3 w-full overflow-hidden rounded-full bg-white/5" role="progressbar" aria-valuenow={progressPercentage} aria-valuemin={0} aria-valuemax={100} aria-label="Question progress">
                         <div
-                          className="h-full rounded-full bg-blue-600 transition-all duration-300 ease-out dark:bg-blue-400"
+                          className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(99,102,241,0.5)]"
                           style={{ width: `${progressPercentage}%` }}
                         />
                       </div>
@@ -938,88 +1109,88 @@ export default function PatientInterviewPage() {
                   );
                 })()}
 
-                 {visibleQuestions.length > 0 && (() => {
-                    const question = visibleQuestions[displayIndex];
-                     return (
-                        <div key={question.id} className="flex flex-col gap-3">
-                          {getSectionTitle(question) && (
-                            <div className="mb-4">
-                              <span className="text-sm font-semibold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full dark:bg-emerald-900/50 dark:text-emerald-400">
-                                {getSectionTitle(question)}
-                              </span>
-                            </div>
-                          )}
-                          {question.section_id === '60f7a39e-754e-440f-99b6-eebfe01ebecd' && (
-                            <div className="mb-4">
-                              <span className="text-sm font-semibold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full dark:bg-emerald-900/50 dark:text-emerald-400">
-                                AYUSH Lifestyle Assessment
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-3">
-                         <label
-                           htmlFor={question.id}
-                           className="text-xl font-semibold text-zinc-900 dark:text-zinc-50"
-                         >
-                           <span className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-base font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
-                             {displayIndex + 1}
-                           </span>
-                           {question.text}
-                         </label>
-                         <button
-                           type="button"
-                           onClick={() => {
-                             if (isSpeaking) {
-                               window.speechSynthesis.cancel();
-                               setIsSpeaking(false);
-                             } else {
-                               speakText(question.text, question.locale);
-                             }
-                           }}
-                           className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border-2 border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-900 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-700"
-                           aria-label={isSpeaking ? 'Stop listening' : 'Listen to question'}
-                         >
-                           {isSpeaking ? '⏹ Stop' : '🔊 Listen'}
-                         </button>
-                       </div>
+                {visibleQuestions.length > 0 && (() => {
+                  const question = visibleQuestions[displayIndex];
+                  return (
+                    <div key={question.id} className="flex flex-col gap-3">
+                      {getSectionTitle(question) && (
+                        <div className="mb-4">
+                          <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
+                            {getSectionTitle(question)}
+                          </span>
+                        </div>
+                      )}
+                      {question.section_id === '60f7a39e-754e-440f-99b6-eebfe01ebecd' && (
+                        <div className="mb-4">
+                          <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
+                            AYUSH Lifestyle Assessment
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3">
+                        <label
+                          htmlFor={question.id}
+                          className="flex-1 text-xl font-medium text-white"
+                        >
+                          <span className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-emerald-500 text-xs font-bold text-white">
+                            {displayIndex + 1}
+                          </span>
+                          {question.text}
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isSpeaking) {
+                              window.speechSynthesis.cancel();
+                              setIsSpeaking(false);
+                            } else {
+                              speakText(question.text, question.locale);
+                            }
+                          }}
+                          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-all hover:border-indigo-400 hover:bg-indigo-500/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                          aria-label={isSpeaking ? 'Stop listening' : 'Listen to question'}
+                        >
+                          {isSpeaking ? '⏹ Stop' : '🔊 Listen'}
+                        </button>
+                      </div>
 
-                       {question.type === "text" && (
-                         <textarea
-                           id={question.id}
-                           value={answers[question.id] || ""}
-                           onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                           rows={4}
-                           className="min-h-[50px] w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
-                         />
-                       )}
+                      {question.type === "text" && (
+                        <textarea
+                          id={question.id}
+                          value={answers[question.id] || ""}
+                          onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                          rows={4}
+                          className="w-full rounded-xl border border-white/10 bg-black/40 p-4 text-white placeholder-zinc-500 transition-all focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                        />
+                      )}
 
-                       {question.type === "number" && (
-                         <input
-                           id={question.id}
-                           type="number"
-                           value={answers[question.id] || ""}
-                           onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                           className="min-h-[50px] w-full rounded-xl border-2 border-zinc-300 bg-zinc-50 p-4 text-lg text-zinc-900 transition-colors focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:focus:border-zinc-100"
-                         />
-                       )}
+                      {question.type === "number" && (
+                        <input
+                          id={question.id}
+                          type="number"
+                          value={answers[question.id] || ""}
+                          onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                          className="w-full rounded-xl border border-white/10 bg-black/40 p-4 text-white placeholder-zinc-500 transition-all focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                        />
+                      )}
 
-                       {typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition) && (
-                         <button
-                           type="button"
-                           onClick={toggleListening}
-                           className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-semibold transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                             isListening
-                               ? 'border-red-500 bg-red-50 text-red-700 animate-pulse dark:border-red-400 dark:bg-red-950 dark:text-red-200'
-                               : 'border-zinc-300 text-zinc-900 hover:border-zinc-900 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-700'
-                           } disabled:cursor-not-allowed disabled:opacity-60`}
-                           aria-label={isListening ? 'Stop listening' : 'Speak your answer'}
-                         >
-                           {isListening ? '🔴 Listening...' : '🎤 Speak'}
-                         </button>
-                       )}
+                      {typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition) && (
+                        <button
+                          type="button"
+                          onClick={toggleListening}
+                          className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/10 px-4 py-2 text-sm font-semibold transition-all hover:bg-white/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
+                            isListening
+                              ? 'border-red-500 bg-red-500/10 text-red-300 animate-pulse'
+                              : 'bg-white/5 text-white hover:border-indigo-400'
+                          }`}
+                          aria-label={isListening ? 'Stop listening' : 'Speak your answer'}
+                        >
+                          {isListening ? '🔴 Listening...' : '🎤 Speak'}
+                        </button>
+                      )}
 
                       {question.type !== "text" && question.type !== "number" && (
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                        <p className="text-sm text-zinc-400">
                           Unsupported question type: {question.type}
                         </p>
                       )}
@@ -1039,7 +1210,7 @@ export default function PatientInterviewPage() {
                         debouncedQuestionIdRef.current = null;
                         setCurrentQuestionIndex((prev) => prev - 1);
                       }}
-                      className="flex min-h-[50px] w-full items-center justify-center rounded-xl border-2 border-zinc-300 px-4 py-3 text-lg font-semibold text-zinc-900 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:border-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-100 dark:hover:bg-zinc-800 sm:w-auto sm:px-8"
+                      className="flex min-h-[50px] w-full items-center justify-center rounded-full border border-white/10 bg-white/5 px-6 py-3 text-base font-semibold text-zinc-300 transition-all hover:text-white hover:bg-white/10 focus:outline-none sm:w-auto"
                     >
                       Back
                     </button>
@@ -1050,7 +1221,7 @@ export default function PatientInterviewPage() {
                       <button
                         type="button"
                         onClick={handleNext}
-                        className="flex min-h-[50px] w-full items-center justify-center rounded-xl bg-zinc-900 px-4 py-3 text-lg font-semibold text-white transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                        className="flex min-h-[50px] w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-3 text-base font-semibold text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all hover:from-indigo-400 hover:to-purple-500 focus:outline-none sm:w-auto"
                       >
                         Next
                       </button>
@@ -1060,13 +1231,13 @@ export default function PatientInterviewPage() {
                         {saveStatus === 'error' && 'Error saving'}
                       </span>
                       {saveStatus === 'saving' && (
-                        <span className="text-sm text-zinc-500 dark:text-zinc-400" aria-hidden="true">Saving...</span>
+                        <span className="text-sm text-zinc-400" aria-hidden="true">Saving...</span>
                       )}
                       {saveStatus === 'saved' && (
-                        <span className="text-sm text-green-600 dark:text-green-400" aria-hidden="true">Saved ✓</span>
+                        <span className="text-sm text-emerald-400" aria-hidden="true">Saved ✓</span>
                       )}
                       {saveStatus === 'error' && (
-                        <span className="text-sm text-red-600 dark:text-red-400" aria-hidden="true">Error saving</span>
+                        <span className="text-sm text-red-400" aria-hidden="true">Error saving</span>
                       )}
                     </div>
                   ) : (
@@ -1074,7 +1245,7 @@ export default function PatientInterviewPage() {
                       <button
                         type="button"
                         onClick={handleReview}
-                        className="flex min-h-[50px] w-full items-center justify-center rounded-xl bg-zinc-900 px-4 py-3 text-lg font-semibold text-white transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:w-auto sm:px-8"
+                        className="flex min-h-[50px] w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-3 text-base font-semibold text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all hover:from-indigo-400 hover:to-purple-500 focus:outline-none sm:w-auto"
                       >
                         Review Answers
                       </button>
@@ -1084,13 +1255,13 @@ export default function PatientInterviewPage() {
                         {saveStatus === 'error' && 'Error saving'}
                       </span>
                       {saveStatus === 'saving' && (
-                        <span className="text-sm text-zinc-500 dark:text-zinc-400" aria-hidden="true">Saving...</span>
+                        <span className="text-sm text-zinc-400" aria-hidden="true">Saving...</span>
                       )}
                       {saveStatus === 'saved' && (
-                        <span className="text-sm text-green-600 dark:text-green-400" aria-hidden="true">Saved ✓</span>
+                        <span className="text-sm text-emerald-400" aria-hidden="true">Saved ✓</span>
                       )}
                       {saveStatus === 'error' && (
-                        <span className="text-sm text-red-600 dark:text-red-400" aria-hidden="true">Error saving</span>
+                        <span className="text-sm text-red-400" aria-hidden="true">Error saving</span>
                       )}
                     </div>
                   )}

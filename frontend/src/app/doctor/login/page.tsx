@@ -1,12 +1,12 @@
 import { Metadata } from "next";
-import PatientAuthForm from "./auth-form";
+import DoctorLoginForm from "./login-form";
 
 export const metadata: Metadata = {
-  title: "Patient Login | MediKiosk",
-  description: "Sign in or create a patient account",
+  title: "Doctor Login | MediKiosk",
+  description: "Secure sign in for doctors",
 };
 
-export default function PatientLoginPage() {
+export default function DoctorLoginPage() {
   return (
     <div className="relative flex min-h-screen flex-1 items-center justify-center overflow-hidden bg-black">
       <div className="pointer-events-none absolute inset-0">
@@ -17,12 +17,12 @@ export default function PatientLoginPage() {
       <div className="relative z-10 w-full max-w-md px-6 py-10">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md">
           <h1 className="mb-2 text-center text-3xl font-bold bg-gradient-to-r from-indigo-400 to-emerald-400 bg-clip-text text-transparent">
-            {process.env.NEXT_PUBLIC_APP_NAME || "MediKiosk"}
+            Doctor Portal
           </h1>
           <p className="mb-8 text-center text-base text-zinc-400">
-            Your AI-powered clinical assessment
+            Sign in to review patient cases
           </p>
-          <PatientAuthForm />
+          <DoctorLoginForm />
         </div>
       </div>
     </div>

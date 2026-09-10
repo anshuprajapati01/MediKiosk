@@ -11,6 +11,7 @@ type PatientInfo = {
   dob: string | null;
   name?: string | null;
   full_name?: string | null;
+  mrn?: string | null;
 };
 
 type Case = {
@@ -27,24 +28,49 @@ export default function DoctorDashboard() {
   const [cases, setCases] = useState<Case[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   useEffect(() => {
     const supabase = createSupabaseClient();
 
-    async function loadCases() {
+    async function checkAuth() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
       if (!session?.user?.id) {
-        router.push("/patient/login");
+        router.replace("/doctor/login");
         return;
       }
 
+      setIsAuthChecking(false);
+    }
+
+    checkAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        router.replace("/doctor/login");
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [router]);
+
+  useEffect(() => {
+    if (isAuthChecking) return;
+
+    async function loadCases() {
+      const supabase = createSupabaseClient();
+
       const { data: interviewsData, error: interviewsError } = await supabase
         .from("interviews")
-        .select("*")
-        .in("status", ["awaiting_review", "completed"])
+        .select("*, patients(*)")
+        .eq("status", "under_review")
         .order("updated_at", { ascending: false });
 
       if (interviewsError) {
@@ -72,8 +98,6 @@ export default function DoctorDashboard() {
         return;
       }
 
-      console.log("Fetched Patients Data:", patientsData);
-
       const combinedData = (interviewsData ?? []).map((interview) => ({
         ...interview,
         patients:
@@ -85,7 +109,7 @@ export default function DoctorDashboard() {
     }
 
     loadCases();
-  }, [router]);
+  }, [isAuthChecking]);
 
   function calculateAge(dob: string | null): number | null {
     if (!dob) return null;
@@ -108,12 +132,17 @@ export default function DoctorDashboard() {
     });
   }
 
+  async function handleLogout() {
+    const supabase = createSupabaseClient();
+    await supabase.auth.signOut();
+    router.replace("/doctor/login");
+  }
+
   function handleReviewCase(interviewId: string) {
-    console.log("Review case:", interviewId);
     router.push(`/doctor/review/${interviewId}`);
   }
 
-  if (isLoading) {
+  if (isAuthChecking || isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
         <div className="flex flex-col items-center gap-4">
@@ -138,83 +167,110 @@ export default function DoctorDashboard() {
   }
 
   return (
-    <div className="flex flex-1 items-start justify-center bg-zinc-50 py-10 dark:bg-black">
-      <div className="w-full max-w-5xl px-6">
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md dark:border-white/5 dark:bg-white/5">
-          <h1 className="mb-2 text-center text-4xl font-bold text-zinc-900 dark:text-zinc-50">
-            Doctor Dashboard - Case Queue
+    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black">
+      <header className="flex items-center justify-between border-b border-white/10 bg-white/5 px-6 py-4 backdrop-blur-xl dark:border-white/5 dark:bg-zinc-900/40">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
+            Doctor Dashboard
           </h1>
-          <p className="mb-8 text-center text-base text-zinc-600 dark:text-zinc-400">
-            Review patient cases awaiting your attention.
-          </p>
-
-          {cases.length === 0 ? (
-            <div className="rounded-xl border border-white/10 bg-white/5 p-12 text-center shadow-2xl backdrop-blur-md dark:border-white/5 dark:bg-white/5">
-              <p className="text-lg text-zinc-600 dark:text-zinc-400">No pending cases</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {cases.map((caseItem) => {
-                const patient = caseItem.patients;
-                const age = calculateAge(patient?.dob ?? null);
-
-                const p = caseItem.patients;
-                let fullName = "Unknown Patient";
-                if (p) {
-                  if (p.first_name || p.last_name) {
-                    fullName = `${p.first_name || ""} ${p.last_name || ""}`.trim();
-                  } else if (p.name) {
-                    fullName = p.name;
-                  } else if (p.full_name) {
-                    fullName = p.full_name;
-                  }
-                }
-
-                return (
-                  <div
-                    key={caseItem.id}
-                    className="flex flex-col gap-4 rounded-xl border border-white/10 border-l-4 border-l-emerald-500 bg-gray-800/50 p-6 transition-all duration-300 hover:bg-gray-800 hover:shadow-xl"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex flex-col gap-1">
-                        <h3 className="text-xl font-bold tracking-tight text-white">
-                          {fullName}
-                        </h3>
-                        <p className="text-sm text-gray-400">
-                          {patient?.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : "Gender N/A"}
-                          {age !== null ? `, Age ${age}` : ""}
-                        </p>
-                      </div>
-                      <span
-                        className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium tracking-wide ${
-                          caseItem.status === "awaiting_review"
-                            ? "border-amber-500/30 bg-amber-500/20 text-amber-300"
-                            : "border-emerald-500/30 bg-emerald-500/20 text-emerald-300"
-                        }`}
-                      >
-                        {caseItem.status === "awaiting_review" ? "Awaiting Review" : "Completed"}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col gap-1 text-sm text-gray-400">
-                      <span>Submitted: {formatDate(caseItem.updated_at)}</span>
-                      <span>Case ID: {caseItem.id}</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleReviewCase(caseItem.id)}
-                      className="mt-auto w-full rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-2.5 text-lg font-semibold text-white shadow-md transition-all duration-300 hover:from-emerald-500 hover:to-teal-400 hover:shadow-lg focus:ring-2 focus:ring-emerald-400 focus:outline-none"
-                    >
-                      Review Case
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <span className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-300">
+            Case Queue
+          </span>
         </div>
-      </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-white/20 hover:text-white focus:ring-2 focus:ring-white/20 focus:outline-none"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+          </svg>
+          Logout
+        </button>
+      </header>
+
+      <main className="flex flex-1 items-start justify-center py-10">
+        <div className="w-full max-w-5xl px-6">
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md dark:border-white/5 dark:bg-white/5">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none" />
+            <div className="relative">
+              <h2 className="mb-2 text-center text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+                Review patient cases awaiting your attention.
+              </h2>
+              <p className="mb-8 text-center text-base text-zinc-600 dark:text-zinc-400">
+                {cases.length} {cases.length === 1 ? "case" : "cases"} pending review
+              </p>
+
+              {cases.length === 0 ? (
+                <div className="rounded-xl border border-white/10 bg-white/5 p-12 text-center shadow-2xl backdrop-blur-md dark:border-white/5 dark:bg-white/5">
+                  <p className="text-lg text-zinc-600 dark:text-zinc-400">No pending cases</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  {cases.map((caseItem) => {
+                    const patient = caseItem.patients;
+                    const age = calculateAge(patient?.dob ?? null);
+
+                    const p = caseItem.patients;
+                    let fullName = "Unknown Patient";
+                    if (p) {
+                      if (p.first_name || p.last_name) {
+                        fullName = `${p.first_name || ""} ${p.last_name || ""}`.trim();
+                      } else if (p.name) {
+                        fullName = p.name;
+                      } else if (p.full_name) {
+                        fullName = p.full_name;
+                      }
+                    }
+
+                    return (
+                      <div
+                        key={caseItem.id}
+                        className="flex flex-col gap-4 rounded-xl border border-white/10 border-l-4 border-l-emerald-500 bg-gray-800/50 p-6 transition-all duration-300 hover:bg-gray-800 hover:shadow-xl"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex flex-col gap-1">
+                            <h3 className="text-xl font-bold tracking-tight text-white">
+                              {fullName}
+                            </h3>
+                            <p className="text-sm text-gray-400">
+                              {patient?.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : "Gender N/A"}
+                              {age !== null ? `, Age ${age}` : ""}
+                            </p>
+                          </div>
+                          <span
+                            className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium tracking-wide ${
+                              caseItem.status === "under_review"
+                                ? "border-indigo-500/30 bg-indigo-500/20 text-indigo-300"
+                                : "border-emerald-500/30 bg-emerald-500/20 text-emerald-300"
+                            }`}
+                          >
+                            {caseItem.status === "under_review" ? "Under Review" : "Completed"}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col gap-1 text-sm text-gray-400">
+                          <span>Submitted: {formatDate(caseItem.updated_at)}</span>
+                          <span>MRN: {patient?.mrn || "—"}</span>
+                          <span>Case ID: {caseItem.id}</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleReviewCase(caseItem.id)}
+                          className="mt-auto w-full rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-2.5 text-lg font-semibold text-white shadow-md transition-all duration-300 hover:from-emerald-500 hover:to-teal-400 hover:shadow-lg focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                        >
+                          Review Case
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
