@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { createSupabaseClient } from "@/lib/supabase/client";
 
 interface SpeechRecognitionEvent {
@@ -85,6 +86,8 @@ const getSectionTitle = (q: Question | Record<string, unknown>) => {
 
 export default function PatientInterviewPage() {
   const router = useRouter();
+  const { theme } = useTheme();
+  const isDarkMode = theme === "dark";
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -687,16 +690,18 @@ export default function PatientInterviewPage() {
 
   if (isLoading) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-black">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-indigo-600/20 blur-[120px]" />
-          <div className="absolute top-1/3 -right-40 h-[500px] w-[500px] rounded-full bg-purple-600/20 blur-[120px]" />
-          <div className="absolute -bottom-40 left-1/3 h-[500px] w-[500px] rounded-full bg-emerald-600/15 blur-[120px]" />
-        </div>
+      <div className={`relative min-h-screen overflow-hidden ${isDarkMode ? "bg-black" : "bg-slate-50"}`} style={!isDarkMode ? { backgroundImage: `linear-gradient(rgba(248, 250, 252, 0.88), rgba(248, 250, 252, 0.88)), url('https://images.unsplash.com/photo-1581594693702-fbdc51b2763b?q=80&w=2070&auto=format&fit=crop')` } : undefined}>
+        {isDarkMode && (
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-indigo-600/20 blur-[120px]" />
+            <div className="absolute top-1/3 -right-40 h-[500px] w-[500px] rounded-full bg-purple-600/20 blur-[120px]" />
+            <div className="absolute -bottom-40 left-1/3 h-[500px] w-[500px] rounded-full bg-emerald-600/15 blur-[120px]" />
+          </div>
+        )}
         <div className="relative z-10 flex min-h-screen flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-4">
-            <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-700 border-t-indigo-400" />
-            <p className="text-lg text-zinc-400">Preparing your clinical assessment...</p>
+            <div className={`h-12 w-12 animate-spin rounded-full border-4 ${isDarkMode ? "border-zinc-700 border-t-indigo-400" : "border-slate-200 border-t-teal-600"}`} />
+            <p className={`text-lg ${isDarkMode ? "text-zinc-400" : "text-slate-500"}`}>Preparing your clinical assessment...</p>
           </div>
         </div>
       </div>
@@ -705,17 +710,19 @@ export default function PatientInterviewPage() {
 
   if (error) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-black">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-indigo-600/20 blur-[120px]" />
-          <div className="absolute top-1/3 -right-40 h-[500px] w-[500px] rounded-full bg-purple-600/20 blur-[120px]" />
-          <div className="absolute -bottom-40 left-1/3 h-[500px] w-[500px] rounded-full bg-emerald-600/15 blur-[120px]" />
-        </div>
+      <div className={`relative min-h-screen overflow-hidden ${isDarkMode ? "bg-black" : "bg-slate-50"}`} style={!isDarkMode ? { backgroundImage: `linear-gradient(rgba(248, 250, 252, 0.88), rgba(248, 250, 252, 0.88)), url('https://images.unsplash.com/photo-1581594693702-fbdc51b2763b?q=80&w=2070&auto=format&fit=crop')` } : undefined}>
+        {isDarkMode && (
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-indigo-600/20 blur-[120px]" />
+            <div className="absolute top-1/3 -right-40 h-[500px] w-[500px] rounded-full bg-purple-600/20 blur-[120px]" />
+            <div className="absolute -bottom-40 left-1/3 h-[500px] w-[500px] rounded-full bg-emerald-600/15 blur-[120px]" />
+          </div>
+        )}
         <div className="relative z-10 flex min-h-screen flex-1 items-center justify-center py-10">
           <div className="w-full max-w-md px-6">
-            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-8 text-center shadow-2xl backdrop-blur-md">
-              <h2 className="mb-2 text-xl font-semibold text-red-200">Something went wrong</h2>
-              <p className="text-base text-red-300">{error}</p>
+            <div className={`rounded-2xl border p-8 text-center shadow-2xl backdrop-blur-md ${isDarkMode ? "border-red-500/30 bg-red-500/10" : "border-red-500/30 bg-red-50"}`}>
+              <h2 className={`mb-2 text-xl font-semibold ${isDarkMode ? "text-red-200" : "text-red-700"}`}>Something went wrong</h2>
+              <p className={`text-base ${isDarkMode ? "text-red-300" : "text-red-700"}`}>{error}</p>
             </div>
           </div>
         </div>
@@ -727,19 +734,21 @@ export default function PatientInterviewPage() {
   const displayIndex = Math.min(currentQuestionIndex, Math.max(0, visibleQuestions.length - 1));
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-black py-10">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-indigo-600/20 blur-[120px]" />
-        <div className="absolute top-1/3 -right-40 h-[500px] w-[500px] rounded-full bg-purple-600/20 blur-[120px]" />
-        <div className="absolute -bottom-40 left-1/3 h-[500px] w-[500px] rounded-full bg-emerald-600/15 blur-[120px]" />
-      </div>
+    <div className={`relative min-h-screen overflow-hidden py-10 ${isDarkMode ? "bg-black" : "bg-slate-50"}`} style={!isDarkMode ? { backgroundImage: `linear-gradient(rgba(248, 250, 252, 0.88), rgba(248, 250, 252, 0.88)), url('https://images.unsplash.com/photo-1581594693702-fbdc51b2763b?q=80&w=2070&auto=format&fit=crop')` } : undefined}>
+      {isDarkMode && (
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-indigo-600/20 blur-[120px]" />
+          <div className="absolute top-1/3 -right-40 h-[500px] w-[500px] rounded-full bg-purple-600/20 blur-[120px]" />
+          <div className="absolute -bottom-40 left-1/3 h-[500px] w-[500px] rounded-full bg-emerald-600/15 blur-[120px]" />
+        </div>
+      )}
 
       <div className="relative z-10 flex w-full justify-center px-6">
-        <div className="w-full max-w-3xl rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md">
-          <h1 className="mb-2 text-center text-4xl font-bold bg-gradient-to-r from-indigo-400 to-emerald-400 bg-clip-text text-transparent">
+        <div className={`w-full max-w-3xl rounded-2xl border p-8 shadow-2xl backdrop-blur-md ${isDarkMode ? "border-white/10 bg-white/5" : "border-slate-200 bg-white shadow-slate-200/50"}`}>
+          <h1 className={`mb-2 text-center text-4xl font-bold ${isDarkMode ? "bg-gradient-to-r from-indigo-400 to-emerald-400 bg-clip-text text-transparent" : "text-slate-900"}`}>
             Clinical Interview
           </h1>
-          <p className="mb-8 text-center text-base text-zinc-400">
+          <p className={`mb-8 text-center text-base ${isDarkMode ? "text-zinc-400" : "text-slate-500"}`}>
             Please answer the following questions to the best of your ability.
           </p>
 
@@ -752,17 +761,17 @@ export default function PatientInterviewPage() {
           <form onSubmit={handleStartInterview} noValidate className="flex flex-col gap-8">
             {step === 'registration' ? (
               <div className="flex flex-col gap-6">
-                <h2 className="text-center text-2xl font-bold text-white">
+                <h2 className={`text-center text-2xl font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>
                   Patient Registration
                 </h2>
-                <p className="text-center text-base text-zinc-400">
+                <p className={`text-center text-base ${isDarkMode ? "text-zinc-400" : "text-slate-500"}`}>
                   Please enter your details to begin the clinical interview.
                 </p>
 
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label htmlFor="fullName" className="text-sm font-medium text-zinc-300">
-                      Full Name <span className="text-red-400">*</span>
+                    <label htmlFor="fullName" className={`text-sm font-medium ${isDarkMode ? "text-zinc-300" : "text-slate-700"}`}>
+                      Full Name <span className={isDarkMode ? "text-red-400" : "text-red-500"}>*</span>
                     </label>
                     <input
                       id="fullName"
@@ -770,14 +779,14 @@ export default function PatientInterviewPage() {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       disabled={isCreatingPatient || Boolean(patientId)}
-                      className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-white placeholder-zinc-500 transition-all focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      className={`w-full rounded-xl border px-4 py-3 text-base outline-none transition-all disabled:cursor-not-allowed disabled:opacity-50 ${isDarkMode ? "border-white/10 bg-black/40 text-white placeholder-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" : "border-slate-300 bg-slate-50 text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500"}`}
                       placeholder="Enter your full name"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label htmlFor="dob" className="text-sm font-medium text-zinc-300">
-                      Date of Birth <span className="text-red-400">*</span>
+                    <label htmlFor="dob" className={`text-sm font-medium ${isDarkMode ? "text-zinc-300" : "text-slate-700"}`}>
+                      Date of Birth <span className={isDarkMode ? "text-red-400" : "text-red-500"}>*</span>
                     </label>
                     <input
                       id="dob"
@@ -785,13 +794,13 @@ export default function PatientInterviewPage() {
                       value={dob}
                       onChange={(e) => setDob(e.target.value)}
                       disabled={isCreatingPatient || Boolean(patientId)}
-                      className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-white placeholder-zinc-500 transition-all focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      className={`w-full rounded-xl border px-4 py-3 text-base outline-none transition-all disabled:cursor-not-allowed disabled:opacity-50 ${isDarkMode ? "border-white/10 bg-black/40 text-white placeholder-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" : "border-slate-300 bg-slate-50 text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500"}`}
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium text-zinc-300">
-                      Gender <span className="text-red-400">*</span>
+                    <label className={`text-sm font-medium ${isDarkMode ? "text-zinc-300" : "text-slate-700"}`}>
+                      Gender <span className={isDarkMode ? "text-red-400" : "text-red-500"}>*</span>
                     </label>
                     <div className="flex gap-3">
                       {[
@@ -806,10 +815,14 @@ export default function PatientInterviewPage() {
                             type="button"
                             onClick={() => setGender(option.value)}
                             disabled={isCreatingPatient || Boolean(patientId)}
-                            className={`flex-1 rounded-full border py-2.5 text-sm font-semibold transition-all focus:outline-none ${
+                            className={`flex-1 rounded-full border py-2.5 text-sm font-semibold transition-all focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
                               isActive
-                                ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300 shadow-[0_0_10px_rgba(99,102,241,0.2)]'
-                                : 'bg-white/5 border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-300'
+                                ? isDarkMode
+                                  ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300 shadow-[0_0_10px_rgba(99,102,241,0.2)]'
+                                  : 'bg-teal-600 text-white border-teal-600'
+                                : isDarkMode
+                                  ? 'bg-white/5 border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-300'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
                             }`}
                           >
                             {option.label}
@@ -821,7 +834,7 @@ export default function PatientInterviewPage() {
                 </div>
 
                 {registrationError && (
-                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+                  <div className={`rounded-xl border p-4 text-sm ${isDarkMode ? "border-red-500/30 bg-red-500/10 text-red-200" : "border-red-500/30 bg-red-50 text-red-700"}`}>
                     {registrationError}
                   </div>
                 )}
@@ -829,7 +842,7 @@ export default function PatientInterviewPage() {
                 <button
                   type="submit"
                   disabled={isCreatingPatient}
-                  className="flex min-h-[50px] w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-3 text-base font-semibold text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all hover:from-indigo-400 hover:to-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`flex min-h-[50px] w-full items-center justify-center rounded-full px-6 py-3 text-base font-semibold text-white shadow-md transition-all focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${isDarkMode ? "bg-gradient-to-r from-indigo-500 to-purple-600 shadow-[0_0_15px_rgba(99,102,241,0.4)] hover:from-indigo-400 hover:to-purple-500" : "bg-teal-600 hover:bg-teal-700"}`}
                 >
                   {isCreatingPatient
                     ? patientId
@@ -842,26 +855,26 @@ export default function PatientInterviewPage() {
               </div>
             ) : showUploadStep ? (
               <div className="flex flex-col gap-6">
-                <h2 className="text-center text-2xl font-bold text-white">
+                <h2 className={`text-center text-2xl font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>
                   Upload Medical Documents
                 </h2>
-                <p className="text-center text-base text-zinc-400">
+                <p className={`text-center text-base ${isDarkMode ? "text-zinc-400" : "text-slate-500"}`}>
                   You may optionally upload supporting medical documents (PDF, PNG, JPEG) up to 10MB each.
                 </p>
 
                 <label
                   htmlFor="medical-document-upload"
-                  className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 text-center transition-colors focus:ring-2 focus:ring-indigo-400 focus:outline-none ${
+                  className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 text-center transition-colors focus:ring-2 focus:outline-none ${isDarkMode ? "focus:ring-indigo-400" : "focus:ring-teal-400"} ${
                     isUploading
-                      ? 'border-zinc-600 bg-zinc-800/50'
-                      : 'border-white/20 bg-white/5 hover:border-indigo-400 hover:bg-white/10'
+                      ? isDarkMode ? 'border-zinc-600 bg-zinc-800/50' : 'border-slate-300 bg-slate-50'
+                      : isDarkMode ? 'border-white/20 bg-white/5 hover:border-indigo-400 hover:bg-white/10' : 'border-slate-300 bg-slate-50 hover:border-teal-400 hover:bg-teal-50'
                   }`}
                 >
                   <span className="text-4xl">📄</span>
-                  <span className="text-base font-semibold text-white">
+                  <span className={`text-base font-semibold ${isDarkMode ? "text-white" : "text-slate-700"}`}>
                     {isUploading ? 'Uploading...' : 'Click to choose files'}
                   </span>
-                  <span className="text-sm text-zinc-400">
+                  <span className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-slate-500"}`}>
                     PDF, PNG, or JPEG (max 10MB)
                   </span>
                   <input
@@ -879,27 +892,27 @@ export default function PatientInterviewPage() {
                 </label>
 
                 {uploadError && (
-                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+                  <div className={`rounded-xl border p-4 text-sm ${isDarkMode ? "border-red-500/30 bg-red-500/10 text-red-200" : "border-red-500/30 bg-red-50 text-red-700"}`}>
                     {uploadError}
                   </div>
                 )}
 
                 {documents.length > 0 && (
                   <div className="flex flex-col gap-3">
-                    <h3 className="text-lg font-semibold text-white">
+                    <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-slate-900"}`}>
                       Attached Documents ({documents.length})
                     </h3>
                     <ul className="flex flex-col gap-2">
                       {documents.map((doc, index) => (
                         <li
                           key={doc.path}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 p-4"
+                          className={`flex items-center justify-between gap-3 rounded-xl border p-4 ${isDarkMode ? "border-white/10 bg-white/5" : "border-slate-200 bg-white"}`}
                         >
                           <div className="flex flex-col">
-                            <span className="truncate text-base font-medium text-white">
+                            <span className={`truncate text-base font-medium ${isDarkMode ? "text-white" : "text-slate-900"}`}>
                               {doc.name}
                             </span>
-                            <span className="text-sm text-zinc-400">
+                            <span className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-slate-500"}`}>
                               {(doc.size / 1024 / 1024).toFixed(2)} MB
                             </span>
                           </div>
@@ -910,14 +923,14 @@ export default function PatientInterviewPage() {
                                 e.preventDefault();
                                 handleViewDocument(doc.path);
                               }}
-                              className="text-indigo-400 hover:text-indigo-300 text-sm font-medium mr-4"
+                              className={`text-sm font-medium mr-4 ${isDarkMode ? "text-indigo-400 hover:text-indigo-300" : "text-teal-600 hover:text-teal-700"}`}
                             >
                               View
                             </a>
                             <button
                               type="button"
                               onClick={() => handleRemoveDocument(index)}
-                              className="flex min-h-[44px] items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-red-500/30 hover:bg-red-500/10 focus:ring-2 focus:ring-red-400 focus:outline-none"
+                              className={`flex min-h-[44px] items-center justify-center rounded-full border px-4 py-2 text-sm font-semibold transition-colors focus:ring-2 focus:outline-none ${isDarkMode ? "border-white/10 bg-white/5 text-white hover:border-red-500/30 hover:bg-red-500/10 focus:ring-red-400" : "border-slate-200 bg-white text-slate-700 hover:border-red-300 hover:bg-red-50 focus:ring-red-400"}`}
                             >
                               Remove
                             </button>
@@ -935,7 +948,7 @@ export default function PatientInterviewPage() {
                       setCurrentQuestionIndex((prev) => Math.max(0, prev - 1));
                       setShowUploadStep(false);
                     }}
-                    className="flex min-h-[50px] w-full items-center justify-center rounded-full border border-white/10 bg-white/5 px-6 py-3 text-base font-semibold text-zinc-300 transition-all hover:text-white hover:bg-white/10 focus:outline-none sm:w-auto"
+                    className={`flex min-h-[50px] w-full items-center justify-center rounded-full border px-6 py-3 text-base font-semibold transition-all focus:outline-none sm:w-auto ${isDarkMode ? "border-white/10 bg-white/5 text-zinc-300 hover:text-white hover:bg-white/10" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
                   >
                     Back
                   </button>
@@ -943,7 +956,7 @@ export default function PatientInterviewPage() {
                     type="button"
                     onClick={handleContinueToReview}
                     disabled={isUploading}
-                    className="flex min-h-[50px] w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-3 text-base font-semibold text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all hover:from-indigo-400 hover:to-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                    className={`flex min-h-[50px] w-full items-center justify-center rounded-full px-6 py-3 text-base font-semibold text-white shadow-md transition-all focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto ${isDarkMode ? "bg-gradient-to-r from-indigo-500 to-purple-600 shadow-[0_0_15px_rgba(99,102,241,0.4)] hover:from-indigo-400 hover:to-purple-500" : "bg-teal-600 hover:bg-teal-700"}`}
                   >
                     Continue to Review
                   </button>
@@ -951,10 +964,10 @@ export default function PatientInterviewPage() {
               </div>
             ) : isReviewMode ? (
               <div className="flex flex-col gap-6">
-                <h2 className="text-center text-2xl font-bold text-white">
+                <h2 className={`text-center text-2xl font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>
                   Review Your Answers
                 </h2>
-                <p className="text-center text-base text-zinc-400">
+                <p className={`text-center text-base ${isDarkMode ? "text-zinc-400" : "text-slate-500"}`}>
                   Please review your responses before submitting.
                 </p>
 
@@ -968,37 +981,37 @@ export default function PatientInterviewPage() {
                         key={question.id}
                         className={`rounded-xl border p-5 transition-colors ${
                           isEmpty
-                            ? 'border-amber-500/30 bg-amber-500/10'
-                            : 'border-white/10 bg-white/5'
+                            ? isDarkMode ? 'border-amber-500/30 bg-amber-500/10' : 'border-amber-200 bg-amber-50'
+                            : isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-50'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
                             {getSectionTitle(question) && (
                               <div className="mb-4">
-                                <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
+                                <span className={`text-xs font-semibold px-3 py-1 rounded-full ${isDarkMode ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/30" : "text-teal-700 bg-teal-50 border border-teal-200"}`}>
                                   {getSectionTitle(question)}
                                 </span>
                               </div>
                             )}
                             {question.section_id === '60f7a39e-754e-440f-99b6-eebfe01ebecd' && (
                               <div className="mb-4">
-                                <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
+                                <span className={`text-xs font-semibold px-3 py-1 rounded-full ${isDarkMode ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/30" : "text-teal-700 bg-teal-50 border border-teal-200"}`}>
                                   AYUSH Lifestyle Assessment
                                 </span>
                               </div>
                             )}
-                            <p className="text-lg font-semibold text-white">
+                            <p className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-slate-900"}`}>
                               <span className={`mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${
                                 isEmpty
-                                  ? 'bg-amber-500/20 text-amber-300'
-                                  : 'bg-gradient-to-br from-indigo-500 to-emerald-500 text-white'
+                                  ? isDarkMode ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-100 text-amber-700'
+                                  : isDarkMode ? 'bg-gradient-to-br from-indigo-500 to-emerald-500 text-white' : 'bg-teal-600 text-white'
                               }`}>
                                 {index + 1}
                               </span>
                               {question.text}
                             </p>
-                            <p className={`mt-2 text-base ${isEmpty ? 'text-zinc-500 italic' : 'text-zinc-300'}`}>
+                            <p className={`mt-2 text-base ${isEmpty ? (isDarkMode ? 'text-zinc-500 italic' : 'text-slate-400 italic') : (isDarkMode ? 'text-zinc-300' : 'text-slate-600')}`}>
                               {isEmpty ? 'No answer provided' : answer}
                             </p>
                           </div>
@@ -1008,7 +1021,7 @@ export default function PatientInterviewPage() {
                               setCurrentQuestionIndex(index);
                               setIsReviewMode(false);
                             }}
-                            className="flex min-h-[50px] w-auto items-center justify-center rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-zinc-300 transition-all hover:text-white hover:bg-white/10 focus:outline-none"
+                            className={`flex min-h-[50px] w-auto items-center justify-center rounded-full border px-5 py-2.5 text-sm font-semibold transition-all focus:outline-none ${isDarkMode ? "border-white/10 bg-white/5 text-zinc-300 hover:text-white hover:bg-white/10" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
                           >
                             Edit
                           </button>
@@ -1019,24 +1032,24 @@ export default function PatientInterviewPage() {
                 </div>
 
                 {documents.length > 0 && (
-                  <div className="flex flex-col gap-4 rounded-xl border border-white/10 bg-white/5 p-6">
-                    <h3 className="text-xl font-bold text-white">
+                  <div className={`flex flex-col gap-4 rounded-xl border p-6 ${isDarkMode ? "border-white/10 bg-white/5" : "border-slate-200 bg-white"}`}>
+                    <h3 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>
                       Uploaded Medical Documents
                     </h3>
-                    <p className="text-base text-zinc-400">
+                    <p className={`text-base ${isDarkMode ? "text-zinc-400" : "text-slate-500"}`}>
                       The following documents are attached to your case.
                     </p>
                     <ul className="flex flex-col gap-2">
                       {documents.map((doc) => (
                         <li
                           key={doc.path}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 p-4"
+                          className={`flex items-center justify-between gap-3 rounded-lg border p-4 ${isDarkMode ? "border-white/10 bg-white/5" : "border-slate-200 bg-slate-50"}`}
                         >
                           <div className="flex flex-col">
-                            <span className="truncate text-base font-medium text-white">
+                            <span className={`truncate text-base font-medium ${isDarkMode ? "text-white" : "text-slate-900"}`}>
                               {doc.name}
                             </span>
-                            <span className="text-sm text-zinc-400">
+                            <span className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-slate-500"}`}>
                               {(doc.size / 1024 / 1024).toFixed(2)} MB
                             </span>
                           </div>
@@ -1047,11 +1060,11 @@ export default function PatientInterviewPage() {
                                 e.preventDefault();
                                 handleViewDocument(doc.path);
                               }}
-                              className="text-indigo-400 hover:text-indigo-300 text-sm font-medium mr-4"
+                              className={`text-sm font-medium mr-4 ${isDarkMode ? "text-indigo-400 hover:text-indigo-300" : "text-teal-600 hover:text-teal-700"}`}
                             >
                               View
                             </a>
-                            <span className="text-sm font-semibold text-emerald-400">
+                            <span className={`text-sm font-semibold ${isDarkMode ? "text-emerald-400" : "text-teal-600"}`}>
                               Attached
                             </span>
                           </div>
@@ -1069,7 +1082,7 @@ export default function PatientInterviewPage() {
                       setIsReviewMode(false);
                     }}
                     disabled={currentQuestionIndex === 0}
-                    className="flex min-h-[50px] w-full items-center justify-center rounded-full border border-white/10 bg-white/5 px-6 py-3 text-base font-semibold text-zinc-300 transition-all hover:text-white hover:bg-white/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                    className={`flex min-h-[50px] w-full items-center justify-center rounded-full border px-6 py-3 text-base font-semibold transition-all focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto ${isDarkMode ? "border-white/10 bg-white/5 text-zinc-300 hover:text-white hover:bg-white/10" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
                   >
                     Back
                   </button>
@@ -1078,7 +1091,7 @@ export default function PatientInterviewPage() {
                     type="button"
                     onClick={handleSubmit}
                     disabled={!hasAnswers || isSubmitting}
-                    className="flex min-h-[50px] w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-3 text-base font-semibold text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all hover:from-indigo-400 hover:to-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                    className={`flex min-h-[50px] w-full items-center justify-center rounded-full px-6 py-3 text-base font-semibold text-white shadow-md transition-all focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto ${isDarkMode ? "bg-gradient-to-r from-indigo-500 to-purple-600 shadow-[0_0_15px_rgba(99,102,241,0.4)] hover:from-indigo-400 hover:to-purple-500" : "bg-teal-600 hover:bg-teal-700"}`}
                   >
                     {isSubmitting ? "Submitting..." : "Submit Case"}
                   </button>
@@ -1093,15 +1106,15 @@ export default function PatientInterviewPage() {
 
                   return (
                     <div className="flex flex-col gap-2" aria-live="polite" aria-label="Interview progress">
-                      <div className="flex items-center justify-between text-base font-medium text-zinc-300">
+                      <div className={`flex items-center justify-between text-base font-medium ${isDarkMode ? "text-zinc-300" : "text-slate-700"}`}>
                         <span>
                           Question {displayIndex + 1} of {visibleQuestions.length}
                         </span>
                         <span>{progressPercentage}%</span>
                       </div>
-                      <div className="h-3 w-full overflow-hidden rounded-full bg-white/5" role="progressbar" aria-valuenow={progressPercentage} aria-valuemin={0} aria-valuemax={100} aria-label="Question progress">
+                      <div className={`h-3 w-full overflow-hidden rounded-full ${isDarkMode ? "bg-white/5" : "bg-slate-200"}`} role="progressbar" aria-valuenow={progressPercentage} aria-valuemin={0} aria-valuemax={100} aria-label="Question progress">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                          className={`h-full rounded-full transition-all duration-300 ease-out ${isDarkMode ? "bg-gradient-to-r from-indigo-500 to-emerald-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" : "bg-teal-600"}`}
                           style={{ width: `${progressPercentage}%` }}
                         />
                       </div>
@@ -1115,14 +1128,14 @@ export default function PatientInterviewPage() {
                     <div key={question.id} className="flex flex-col gap-3">
                       {getSectionTitle(question) && (
                         <div className="mb-4">
-                          <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
+                          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${isDarkMode ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/30" : "text-teal-700 bg-teal-50 border border-teal-200"}`}>
                             {getSectionTitle(question)}
                           </span>
                         </div>
                       )}
                       {question.section_id === '60f7a39e-754e-440f-99b6-eebfe01ebecd' && (
                         <div className="mb-4">
-                          <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
+                          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${isDarkMode ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/30" : "text-teal-700 bg-teal-50 border border-teal-200"}`}>
                             AYUSH Lifestyle Assessment
                           </span>
                         </div>
@@ -1130,9 +1143,13 @@ export default function PatientInterviewPage() {
                       <div className="flex items-center gap-3">
                         <label
                           htmlFor={question.id}
-                          className="flex-1 text-xl font-medium text-white"
+                          className={`flex-1 text-xl font-medium ${isDarkMode ? "text-white" : "text-slate-900"}`}
                         >
-                          <span className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-emerald-500 text-xs font-bold text-white">
+                          <span className={`mr-2 inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
+                            isDarkMode
+                              ? 'bg-gradient-to-br from-indigo-500 to-emerald-500 text-white'
+                              : 'bg-teal-600 text-white'
+                          }`}>
                             {displayIndex + 1}
                           </span>
                           {question.text}
@@ -1147,7 +1164,7 @@ export default function PatientInterviewPage() {
                               speakText(question.text, question.locale);
                             }
                           }}
-                          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-all hover:border-indigo-400 hover:bg-indigo-500/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                          className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border px-4 py-2 text-sm font-semibold transition-all focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${isDarkMode ? "border-white/10 bg-white/5 text-white hover:border-indigo-400 hover:bg-indigo-500/10" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
                           aria-label={isSpeaking ? 'Stop listening' : 'Listen to question'}
                         >
                           {isSpeaking ? '⏹ Stop' : '🔊 Listen'}
@@ -1160,7 +1177,7 @@ export default function PatientInterviewPage() {
                           value={answers[question.id] || ""}
                           onChange={(e) => handleAnswerChange(question.id, e.target.value)}
                           rows={4}
-                          className="w-full rounded-xl border border-white/10 bg-black/40 p-4 text-white placeholder-zinc-500 transition-all focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                          className={`w-full rounded-xl border p-4 transition-all focus:outline-none ${isDarkMode ? "border-white/10 bg-black/40 text-white placeholder-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" : "border-slate-300 bg-slate-50 text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500"}`}
                         />
                       )}
 
@@ -1170,7 +1187,7 @@ export default function PatientInterviewPage() {
                           type="number"
                           value={answers[question.id] || ""}
                           onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                          className="w-full rounded-xl border border-white/10 bg-black/40 p-4 text-white placeholder-zinc-500 transition-all focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                          className={`w-full rounded-xl border p-4 transition-all focus:outline-none ${isDarkMode ? "border-white/10 bg-black/40 text-white placeholder-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" : "border-slate-300 bg-slate-50 text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500"}`}
                         />
                       )}
 
@@ -1178,19 +1195,14 @@ export default function PatientInterviewPage() {
                         <button
                           type="button"
                           onClick={toggleListening}
-                          className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/10 px-4 py-2 text-sm font-semibold transition-all hover:bg-white/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
-                            isListening
-                              ? 'border-red-500 bg-red-500/10 text-red-300 animate-pulse'
-                              : 'bg-white/5 text-white hover:border-indigo-400'
-                          }`}
-                          aria-label={isListening ? 'Stop listening' : 'Speak your answer'}
+                          className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border px-4 py-2 text-sm font-semibold transition-all hover:bg-white/10 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${isDarkMode ? "border-white/10 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
                         >
                           {isListening ? '🔴 Listening...' : '🎤 Speak'}
                         </button>
                       )}
 
                       {question.type !== "text" && question.type !== "number" && (
-                        <p className="text-sm text-zinc-400">
+                        <p className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-slate-500"}`}>
                           Unsupported question type: {question.type}
                         </p>
                       )}
@@ -1210,7 +1222,7 @@ export default function PatientInterviewPage() {
                         debouncedQuestionIdRef.current = null;
                         setCurrentQuestionIndex((prev) => prev - 1);
                       }}
-                      className="flex min-h-[50px] w-full items-center justify-center rounded-full border border-white/10 bg-white/5 px-6 py-3 text-base font-semibold text-zinc-300 transition-all hover:text-white hover:bg-white/10 focus:outline-none sm:w-auto"
+                      className={`flex min-h-[50px] w-full items-center justify-center rounded-full border px-6 py-3 text-base font-semibold transition-all focus:outline-none sm:w-auto ${isDarkMode ? "border-white/10 bg-white/5 text-zinc-300 hover:text-white hover:bg-white/10" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
                     >
                       Back
                     </button>
@@ -1221,7 +1233,7 @@ export default function PatientInterviewPage() {
                       <button
                         type="button"
                         onClick={handleNext}
-                        className="flex min-h-[50px] w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-3 text-base font-semibold text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all hover:from-indigo-400 hover:to-purple-500 focus:outline-none sm:w-auto"
+                        className={`flex min-h-[50px] w-full items-center justify-center rounded-full px-6 py-3 text-base font-semibold text-white shadow-md transition-all focus:outline-none sm:w-auto ${isDarkMode ? "bg-gradient-to-r from-indigo-500 to-purple-600 shadow-[0_0_15px_rgba(99,102,241,0.4)] hover:from-indigo-400 hover:to-purple-500" : "bg-teal-600 hover:bg-teal-700"}`}
                       >
                         Next
                       </button>
@@ -1230,22 +1242,18 @@ export default function PatientInterviewPage() {
                         {saveStatus === 'saved' && 'Saved'}
                         {saveStatus === 'error' && 'Error saving'}
                       </span>
-                      {saveStatus === 'saving' && (
-                        <span className="text-sm text-zinc-400" aria-hidden="true">Saving...</span>
-                      )}
-                      {saveStatus === 'saved' && (
-                        <span className="text-sm text-emerald-400" aria-hidden="true">Saved ✓</span>
-                      )}
-                      {saveStatus === 'error' && (
-                        <span className="text-sm text-red-400" aria-hidden="true">Error saving</span>
-                      )}
+                      <span className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-slate-500"}`} aria-hidden="true">
+                        {saveStatus === 'saving' && 'Saving...'}
+                        {saveStatus === 'saved' && 'Saved ✓'}
+                        {saveStatus === 'error' && 'Error saving'}
+                      </span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
                         onClick={handleReview}
-                        className="flex min-h-[50px] w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-3 text-base font-semibold text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all hover:from-indigo-400 hover:to-purple-500 focus:outline-none sm:w-auto"
+                        className={`flex min-h-[50px] w-full items-center justify-center rounded-full px-6 py-3 text-base font-semibold text-white shadow-md transition-all focus:outline-none sm:w-auto ${isDarkMode ? "bg-gradient-to-r from-indigo-500 to-purple-600 shadow-[0_0_15px_rgba(99,102,241,0.4)] hover:from-indigo-400 hover:to-purple-500" : "bg-teal-600 hover:bg-teal-700"}`}
                       >
                         Review Answers
                       </button>
@@ -1254,15 +1262,11 @@ export default function PatientInterviewPage() {
                         {saveStatus === 'saved' && 'Saved'}
                         {saveStatus === 'error' && 'Error saving'}
                       </span>
-                      {saveStatus === 'saving' && (
-                        <span className="text-sm text-zinc-400" aria-hidden="true">Saving...</span>
-                      )}
-                      {saveStatus === 'saved' && (
-                        <span className="text-sm text-emerald-400" aria-hidden="true">Saved ✓</span>
-                      )}
-                      {saveStatus === 'error' && (
-                        <span className="text-sm text-red-400" aria-hidden="true">Error saving</span>
-                      )}
+                      <span className={`text-sm ${isDarkMode ? "text-zinc-400" : "text-slate-500"}`} aria-hidden="true">
+                        {saveStatus === 'saving' && 'Saving...'}
+                        {saveStatus === 'saved' && 'Saved ✓'}
+                        {saveStatus === 'error' && 'Error saving'}
+                      </span>
                     </div>
                   )}
                 </div>

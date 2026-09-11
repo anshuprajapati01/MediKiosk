@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { createSupabaseClient } from "@/lib/supabase/client";
 
 type PatientInfo = {
@@ -25,6 +26,8 @@ type Case = {
 
 export default function DoctorDashboard() {
   const router = useRouter();
+  const { theme } = useTheme();
+  const isDarkMode = theme === "dark";
   const [cases, setCases] = useState<Case[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -144,10 +147,26 @@ export default function DoctorDashboard() {
 
   if (isAuthChecking || isLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
+      <div
+        className={`flex flex-1 items-center justify-center ${
+          isDarkMode ? "bg-black" : "bg-slate-50"
+        }`}
+      >
         <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-zinc-100" />
-          <p className="text-lg text-zinc-600 dark:text-zinc-400">Loading case queue...</p>
+          <div
+            className={`h-12 w-12 animate-spin rounded-full border-4 ${
+              isDarkMode
+                ? "border-zinc-700 border-t-indigo-400"
+                : "border-slate-300 border-t-teal-600"
+            }`}
+          />
+          <p
+            className={`text-lg ${
+              isDarkMode ? "text-zinc-400" : "text-slate-600"
+            }`}
+          >
+            Loading case queue...
+          </p>
         </div>
       </div>
     );
@@ -155,11 +174,33 @@ export default function DoctorDashboard() {
 
   if (error) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
+      <div
+        className={`flex flex-1 items-center justify-center ${
+          isDarkMode ? "bg-black" : "bg-slate-50"
+        }`}
+      >
         <div className="w-full max-w-md px-6">
-          <div className="rounded-2xl border-2 border-red-500 bg-red-50 p-8 text-center dark:bg-red-950">
-            <h2 className="mb-2 text-xl font-semibold text-red-900 dark:text-red-200">Something went wrong</h2>
-            <p className="text-base text-red-800 dark:text-red-300">{error}</p>
+          <div
+            className={`rounded-2xl border-2 p-8 text-center ${
+              isDarkMode
+                ? "border-red-500/30 bg-red-500/10"
+                : "border-red-200 bg-red-50"
+            }`}
+          >
+            <h2
+              className={`mb-2 text-xl font-semibold ${
+                isDarkMode ? "text-red-200" : "text-red-900"
+              }`}
+            >
+              Something went wrong
+            </h2>
+            <p
+              className={`text-base ${
+                isDarkMode ? "text-red-300" : "text-red-800"
+              }`}
+            >
+              {error}
+            </p>
           </div>
         </div>
       </div>
@@ -167,20 +208,44 @@ export default function DoctorDashboard() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black">
-      <header className="flex items-center justify-between border-b border-white/10 bg-white/5 px-6 py-4 backdrop-blur-xl dark:border-white/5 dark:bg-zinc-900/40">
+    <div
+      className={`flex min-h-screen flex-col ${
+        isDarkMode ? "bg-black" : "bg-slate-50"
+      }`}
+    >
+      <header
+        className={`flex items-center justify-between px-6 py-4 ${
+          isDarkMode
+            ? "border-b border-white/5 bg-white/5 backdrop-blur-xl"
+            : "border-b border-slate-200 bg-white"
+        }`}
+      >
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
+          <h1
+            className={`text-xl font-bold ${
+              isDarkMode ? "text-zinc-50" : "text-slate-800"
+            }`}
+          >
             Doctor Dashboard
           </h1>
-          <span className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-300">
+          <span
+            className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+              isDarkMode
+                ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300"
+                : "border-teal-200 bg-teal-50 text-teal-700"
+            }`}
+          >
             Case Queue
           </span>
         </div>
         <button
           type="button"
           onClick={handleLogout}
-          className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-white/20 hover:text-white focus:ring-2 focus:ring-white/20 focus:outline-none"
+          className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition hover:border-opacity-30 focus:ring-2 focus:outline-none ${
+            isDarkMode
+              ? "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:text-white focus:ring-white/20"
+              : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:text-slate-900 focus:ring-slate-300"
+          }`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
@@ -191,19 +256,47 @@ export default function DoctorDashboard() {
 
       <main className="flex flex-1 items-start justify-center py-10">
         <div className="w-full max-w-5xl px-6">
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md dark:border-white/5 dark:bg-white/5">
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none" />
+          <div
+            className={`relative overflow-hidden rounded-2xl border p-8 shadow-2xl backdrop-blur-md ${
+              isDarkMode
+                ? "border-white/10 bg-white/5"
+                : "border-slate-200 bg-white shadow-lg"
+            }`}
+          >
+            {isDarkMode && (
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none" />
+            )}
             <div className="relative">
-              <h2 className="mb-2 text-center text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+              <h2
+                className={`mb-2 text-center text-2xl font-bold ${
+                  isDarkMode ? "text-zinc-50" : "text-slate-900"
+                }`}
+              >
                 Review patient cases awaiting your attention.
               </h2>
-              <p className="mb-8 text-center text-base text-zinc-600 dark:text-zinc-400">
+              <p
+                className={`mb-8 text-center text-base ${
+                  isDarkMode ? "text-zinc-400" : "text-slate-600"
+                }`}
+              >
                 {cases.length} {cases.length === 1 ? "case" : "cases"} pending review
               </p>
 
               {cases.length === 0 ? (
-                <div className="rounded-xl border border-white/10 bg-white/5 p-12 text-center shadow-2xl backdrop-blur-md dark:border-white/5 dark:bg-white/5">
-                  <p className="text-lg text-zinc-600 dark:text-zinc-400">No pending cases</p>
+                <div
+                  className={`rounded-xl border p-12 text-center shadow-sm ${
+                    isDarkMode
+                      ? "border-white/10 bg-white/5"
+                      : "border-slate-200 bg-slate-50"
+                  }`}
+                >
+                  <p
+                    className={`text-lg ${
+                      isDarkMode ? "text-zinc-400" : "text-slate-600"
+                    }`}
+                  >
+                    No pending cases
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -226,14 +319,26 @@ export default function DoctorDashboard() {
                     return (
                       <div
                         key={caseItem.id}
-                        className="flex flex-col gap-4 rounded-xl border border-white/10 border-l-4 border-l-emerald-500 bg-gray-800/50 p-6 transition-all duration-300 hover:bg-gray-800 hover:shadow-xl"
+                        className={`flex flex-col gap-4 rounded-xl border p-6 transition-all duration-300 ${
+                          isDarkMode
+                            ? "border-white/10 bg-[#111] hover:bg-white/5 hover:shadow-xl"
+                            : "border-slate-200 bg-white shadow-md hover:shadow-lg"
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex flex-col gap-1">
-                            <h3 className="text-xl font-bold tracking-tight text-white">
+                            <h3
+                              className={`text-xl font-bold tracking-tight ${
+                                isDarkMode ? "text-white" : "text-slate-900"
+                              }`}
+                            >
                               {fullName}
                             </h3>
-                            <p className="text-sm text-gray-400">
+                            <p
+                              className={`text-sm ${
+                                isDarkMode ? "text-gray-400" : "text-slate-500"
+                              }`}
+                            >
                               {patient?.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : "Gender N/A"}
                               {age !== null ? `, Age ${age}` : ""}
                             </p>
@@ -241,15 +346,23 @@ export default function DoctorDashboard() {
                           <span
                             className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium tracking-wide ${
                               caseItem.status === "under_review"
-                                ? "border-indigo-500/30 bg-indigo-500/20 text-indigo-300"
-                                : "border-emerald-500/30 bg-emerald-500/20 text-emerald-300"
+                                ? isDarkMode
+                                  ? "border-indigo-500/30 bg-indigo-500/20 text-indigo-300"
+                                  : "bg-amber-100 text-amber-700 border-amber-200"
+                                : isDarkMode
+                                  ? "border-emerald-500/30 bg-emerald-500/20 text-emerald-300"
+                                  : "bg-emerald-100 text-emerald-700 border-emerald-200"
                             }`}
                           >
                             {caseItem.status === "under_review" ? "Under Review" : "Completed"}
                           </span>
                         </div>
 
-                        <div className="flex flex-col gap-1 text-sm text-gray-400">
+                        <div
+                          className={`flex flex-col gap-1 text-sm ${
+                            isDarkMode ? "text-gray-400" : "text-slate-500"
+                          }`}
+                        >
                           <span>Submitted: {formatDate(caseItem.updated_at)}</span>
                           <span>MRN: {patient?.mrn || "—"}</span>
                           <span>Case ID: {caseItem.id}</span>
@@ -258,7 +371,11 @@ export default function DoctorDashboard() {
                         <button
                           type="button"
                           onClick={() => handleReviewCase(caseItem.id)}
-                          className="mt-auto w-full rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-2.5 text-lg font-semibold text-white shadow-md transition-all duration-300 hover:from-emerald-500 hover:to-teal-400 hover:shadow-lg focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                          className={`mt-auto w-full rounded-lg px-4 py-2.5 text-lg font-semibold text-white transition-all shadow-sm focus:ring-2 focus:outline-none ${
+                            isDarkMode
+                              ? "bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 hover:shadow-lg focus:ring-emerald-400"
+                              : "bg-teal-600 hover:bg-teal-700 focus:ring-teal-500"
+                          }`}
                         >
                           Review Case
                         </button>

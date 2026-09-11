@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import PatientDashboard from "./patient-dashboard";
+import PatientDashboardClient from "./patient-dashboard-client";
 
 export const metadata: Metadata = {
   title: "Patient Dashboard | MediKiosk",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function PatientPage() {
-  return <PatientDashboard />;
+  return <PatientDashboardClient />;
 }

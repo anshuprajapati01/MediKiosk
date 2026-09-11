@@ -1,9 +1,9 @@
 "use client";
 
+import PatientAuthForm from "./auth-form";
 import { useTheme } from "next-themes";
-import DoctorLoginForm from "./login-form";
 
-export default function DoctorLoginPage() {
+export default function LoginFormClient() {
   const { theme } = useTheme();
   const isDarkMode = theme === "dark";
 
@@ -27,31 +27,32 @@ export default function DoctorLoginPage() {
           <div className="absolute -bottom-40 left-1/3 h-[500px] w-[500px] rounded-full bg-emerald-600/15 blur-[120px]" />
         </div>
       )}
+
       <div className="relative z-10 w-full max-w-md px-6 py-10">
         <div
           className={`rounded-2xl border p-8 shadow-2xl backdrop-blur-md ${
             isDarkMode
               ? "border-white/10 bg-white/5"
-              : "border-slate-200 bg-white shadow-xl"
+              : "border-slate-100 bg-white shadow-slate-200/50"
           }`}
         >
           <h1
             className={`mb-2 text-center text-3xl font-bold ${
               isDarkMode
-                ? "bg-gradient-to-r from-indigo-400 via-purple-400 to-emerald-400 bg-clip-text text-transparent"
+                ? "bg-gradient-to-r from-purple-400 to-emerald-400 bg-clip-text text-transparent"
                 : "text-slate-900"
             }`}
           >
-            Doctor Portal
+            MediKiosk
           </h1>
           <p
             className={`mb-8 text-center text-base ${
-              isDarkMode ? "text-zinc-400" : "text-slate-600"
+              isDarkMode ? "text-zinc-400" : "text-slate-500"
             }`}
           >
-            Sign in to review patient cases
+            Your AI-powered clinical assessment
           </p>
-          <DoctorLoginForm isDarkMode={isDarkMode} />
+          <PatientAuthForm isDarkMode={isDarkMode} />
         </div>
       </div>
     </div>

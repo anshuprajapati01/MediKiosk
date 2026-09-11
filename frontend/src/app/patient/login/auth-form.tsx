@@ -16,7 +16,11 @@ type FormErrors = {
 
 type Mode = "signin" | "signup";
 
-export default function PatientAuthForm() {
+type Props = {
+  isDarkMode?: boolean;
+};
+
+export default function PatientAuthForm({ isDarkMode = false }: Props) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("signin");
   const [fullName, setFullName] = useState("");
@@ -175,30 +179,74 @@ export default function PatientAuthForm() {
     setSuccessMessage("");
   }
 
+  const inputBase = `h-12 rounded-xl border px-4 text-base outline-none transition-colors disabled:opacity-50 ${
+    isDarkMode
+      ? "bg-black/50 text-white placeholder-zinc-500"
+      : "bg-slate-50 text-slate-800 placeholder-slate-400"
+  }`;
+
+  const labelClass = `text-sm font-medium ${
+    isDarkMode ? "text-zinc-300" : "text-slate-700"
+  }`;
+
+  const errorClass = `text-sm ${
+    isDarkMode ? "text-red-400" : "text-red-500"
+  }`;
+
+  const successClass = `rounded-lg border p-4 text-sm ${
+    isDarkMode
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+      : "border-emerald-500/30 bg-emerald-50 text-emerald-700"
+  }`;
+
+  const alertClass = `rounded-lg border p-4 text-sm ${
+    isDarkMode
+      ? "border-red-500/30 bg-red-500/10 text-red-200"
+      : "border-red-500/30 bg-red-50 text-red-700"
+  }`;
+
+  const textLinkClass = `font-medium ${
+    isDarkMode
+      ? "text-teal-400 hover:text-teal-300"
+      : "text-teal-600 hover:text-teal-700"
+  }`;
+
+  const genderActive = isDarkMode
+    ? "bg-indigo-500/20 border-indigo-500 text-indigo-300 shadow-[0_0_10px_rgba(99,102,241,0.2)]"
+    : "bg-teal-50 border-teal-500 text-teal-700";
+
+  const genderInactive = isDarkMode
+    ? "bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white"
+    : "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50";
+
+  const inputFocusSuccess = isDarkMode
+    ? "focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+    : "focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20";
+
+  const inputFocusError = isDarkMode
+    ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+    : "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20";
+
+  const inputBorderDefault = isDarkMode ? "border-white/10" : "border-slate-200";
+
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
       {successMessage && (
-        <div
-          className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200"
-          role="status"
-        >
+        <div className={successClass} role="status">
           {successMessage}
         </div>
       )}
 
       {errors.general && (
-        <div
-          className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200"
-          role="alert"
-        >
+        <div className={alertClass} role="alert">
           {errors.general}
         </div>
       )}
 
       {mode === "signup" && (
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="fullName" className="text-sm font-medium text-zinc-300">
-            Full Name <span className="text-red-400">*</span>
+          <label htmlFor="fullName" className={labelClass}>
+            Full Name <span className={isDarkMode ? "text-red-400" : "text-red-500"}>*</span>
           </label>
           <input
             id="fullName"
@@ -206,23 +254,19 @@ export default function PatientAuthForm() {
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             disabled={isLoading}
-            className={`h-12 rounded-xl border bg-black/40 px-4 text-base text-white placeholder-zinc-500 outline-none transition-colors disabled:opacity-50 ${
-              errors.fullName
-                ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-                : "border-white/10 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            className={`${inputBase} ${
+              errors.fullName ? inputFocusError : `${inputBorderDefault} ${inputFocusSuccess}`
             }`}
             placeholder="John Doe"
             autoComplete="name"
           />
-          {errors.fullName && (
-            <p className="text-sm text-red-400">{errors.fullName}</p>
-          )}
+          {errors.fullName && <p className={errorClass}>{errors.fullName}</p>}
         </div>
       )}
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="email" className="text-sm font-medium text-zinc-300">
-          Email <span className="text-red-400">*</span>
+        <label htmlFor="email" className={labelClass}>
+          Email <span className={isDarkMode ? "text-red-400" : "text-red-500"}>*</span>
         </label>
         <input
           id="email"
@@ -230,22 +274,18 @@ export default function PatientAuthForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={isLoading}
-          className={`h-12 rounded-xl border bg-black/40 px-4 text-base text-white placeholder-zinc-500 outline-none transition-colors disabled:opacity-50 ${
-            errors.email
-              ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-              : "border-white/10 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+          className={`${inputBase} ${
+            errors.email ? inputFocusError : `${inputBorderDefault} ${inputFocusSuccess}`
           }`}
           placeholder="you@example.com"
           autoComplete="email"
         />
-        {errors.email && (
-          <p className="text-sm text-red-400">{errors.email}</p>
-        )}
+        {errors.email && <p className={errorClass}>{errors.email}</p>}
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="password" className="text-sm font-medium text-zinc-300">
-          Password <span className="text-red-400">*</span>
+        <label htmlFor="password" className={labelClass}>
+          Password <span className={isDarkMode ? "text-red-400" : "text-red-500"}>*</span>
         </label>
         <input
           id="password"
@@ -253,23 +293,19 @@ export default function PatientAuthForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={isLoading}
-          className={`h-12 rounded-xl border bg-black/40 px-4 text-base text-white placeholder-zinc-500 outline-none transition-colors disabled:opacity-50 ${
-            errors.password
-              ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-              : "border-white/10 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+          className={`${inputBase} ${
+            errors.password ? inputFocusError : `${inputBorderDefault} ${inputFocusSuccess}`
           }`}
           placeholder={mode === "signup" ? "At least 8 characters" : "Enter your password"}
           autoComplete={mode === "signin" ? "current-password" : "new-password"}
         />
-        {errors.password && (
-          <p className="text-sm text-red-400">{errors.password}</p>
-        )}
+        {errors.password && <p className={errorClass}>{errors.password}</p>}
       </div>
 
       {mode === "signup" && (
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="confirmPassword" className="text-sm font-medium text-zinc-300">
-            Confirm Password <span className="text-red-400">*</span>
+          <label htmlFor="confirmPassword" className={labelClass}>
+            Confirm Password <span className={isDarkMode ? "text-red-400" : "text-red-500"}>*</span>
           </label>
           <input
             id="confirmPassword"
@@ -277,25 +313,21 @@ export default function PatientAuthForm() {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             disabled={isLoading}
-            className={`h-12 rounded-xl border bg-black/40 px-4 text-base text-white placeholder-zinc-500 outline-none transition-colors disabled:opacity-50 ${
-              errors.confirmPassword
-                ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-                : "border-white/10 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            className={`${inputBase} ${
+              errors.confirmPassword ? inputFocusError : `${inputBorderDefault} ${inputFocusSuccess}`
             }`}
             placeholder="Re-enter your password"
             autoComplete="new-password"
           />
-          {errors.confirmPassword && (
-            <p className="text-sm text-red-400">{errors.confirmPassword}</p>
-          )}
+          {errors.confirmPassword && <p className={errorClass}>{errors.confirmPassword}</p>}
         </div>
       )}
 
       {mode === "signup" && (
         <>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="dob" className="text-sm font-medium text-zinc-300">
-              Date of Birth <span className="text-red-400">*</span>
+            <label htmlFor="dob" className={labelClass}>
+              Date of Birth <span className={isDarkMode ? "text-red-400" : "text-red-500"}>*</span>
             </label>
             <input
               id="dob"
@@ -303,20 +335,16 @@ export default function PatientAuthForm() {
               value={dob}
               onChange={(e) => setDob(e.target.value)}
               disabled={isLoading}
-              className={`h-12 rounded-xl border bg-black/40 px-4 text-base text-white placeholder-zinc-500 outline-none transition-colors disabled:opacity-50 ${
-                errors.dob
-                  ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-                  : "border-white/10 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+              className={`${inputBase} ${
+                errors.dob ? inputFocusError : `${inputBorderDefault} ${inputFocusSuccess}`
               }`}
             />
-            {errors.dob && (
-              <p className="text-sm text-red-400">{errors.dob}</p>
-            )}
+            {errors.dob && <p className={errorClass}>{errors.dob}</p>}
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-zinc-300">
-              Gender <span className="text-red-400">*</span>
+            <label className={labelClass}>
+              Gender <span className={isDarkMode ? "text-red-400" : "text-red-500"}>*</span>
             </label>
             <div className="flex gap-3">
               {[
@@ -331,9 +359,7 @@ export default function PatientAuthForm() {
                     type="button"
                     onClick={() => setGender(option.value)}
                     className={`flex-1 py-3 rounded-xl border text-sm font-medium transition-all duration-200 ${
-                      isActive
-                        ? "bg-indigo-500/20 border-indigo-500 text-indigo-300 shadow-[0_0_10px_rgba(99,102,241,0.2)]"
-                        : "bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white"
+                      isActive ? genderActive : genderInactive
                     }`}
                   >
                     {option.label}
@@ -341,9 +367,7 @@ export default function PatientAuthForm() {
                 );
               })}
             </div>
-            {errors.gender && (
-              <p className="text-sm text-red-400">{errors.gender}</p>
-            )}
+            {errors.gender && <p className={errorClass}>{errors.gender}</p>}
           </div>
         </>
       )}
@@ -351,7 +375,11 @@ export default function PatientAuthForm() {
       <button
         type="submit"
         disabled={isLoading}
-        className="mt-2 flex h-12 w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-base font-semibold text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] transition-all hover:from-indigo-400 hover:to-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+        className={`mt-2 flex h-12 w-full items-center justify-center rounded-full text-base font-semibold text-white shadow-md transition-all focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
+          isDarkMode
+            ? "bg-teal-600 hover:bg-teal-700"
+            : "bg-teal-600 hover:bg-teal-700"
+        }`}
       >
         {isLoading
           ? mode === "signin"
@@ -362,26 +390,18 @@ export default function PatientAuthForm() {
             : "Create Account"}
       </button>
 
-      <p className="text-center text-sm text-zinc-400">
+      <p className={`text-center text-sm ${isDarkMode ? "text-zinc-400" : "text-slate-500"}`}>
         {mode === "signin" ? (
           <>
             Don&apos;t have an account?{" "}
-            <button
-              type="button"
-              onClick={toggleMode}
-              className="font-medium text-indigo-400 underline underline-offset-4 hover:text-indigo-300"
-            >
+            <button type="button" onClick={toggleMode} className={textLinkClass}>
               Create Account
             </button>
           </>
         ) : (
           <>
             Already have an account?{" "}
-            <button
-              type="button"
-              onClick={toggleMode}
-              className="font-medium text-indigo-400 underline underline-offset-4 hover:text-indigo-300"
-            >
+            <button type="button" onClick={toggleMode} className={textLinkClass}>
               Sign In
             </button>
           </>

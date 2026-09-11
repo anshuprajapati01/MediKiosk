@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { createSupabaseClient } from "@/lib/supabase/client";
 import MedicalTimeline, { TimelineEvent } from "@/components/MedicalTimeline";
 import { evaluateRedFlags } from "@/lib/triageEngine";
@@ -92,29 +93,55 @@ function SummaryField({
   value,
   source,
   className,
+  isDarkMode,
 }: {
   label: string;
   value: string;
   source?: string;
   className?: string;
+  isDarkMode: boolean;
 }) {
   return (
-    <div className={`rounded-lg border border-white/5 bg-white/5 p-4 ${className ?? ""}`.trim()}>
+    <div
+      className={`rounded-lg border p-4 ${
+        isDarkMode ? "border-white/5 bg-white/5" : "border-slate-200 bg-slate-50"
+      } ${className ?? ""}`.trim()}
+    >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+        <p
+          className={`text-xs font-semibold uppercase tracking-wider ${
+            isDarkMode ? "text-slate-400" : "text-slate-500"
+          }`}
+        >
+          {label}
+        </p>
         {source && (
-          <span className="inline-flex items-center rounded-full border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-300">
+          <span
+            className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+              isDarkMode
+                ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300"
+                : "border-teal-200 bg-teal-50 text-teal-700"
+            }`}
+          >
             {source.replace(/_/g, " ")}
           </span>
         )}
       </div>
-      <p className="mt-1 text-sm text-slate-200">{value}</p>
+      <p
+        className={`mt-1 text-sm ${
+          isDarkMode ? "text-slate-200" : "text-slate-700"
+        }`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
 
 export default function DoctorReviewPage({ interviewId }: { interviewId: string }) {
   const router = useRouter();
+  const { theme } = useTheme();
+  const isDarkMode = theme === "dark";
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [interview, setInterview] = useState<Interview | null>(null);
@@ -443,10 +470,26 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
 
   if (isLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
+      <div
+        className={`flex flex-1 items-center justify-center ${
+          isDarkMode ? "bg-black" : "bg-slate-50"
+        }`}
+      >
         <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-zinc-100" />
-          <p className="text-lg text-zinc-600 dark:text-zinc-400">Loading review...</p>
+          <div
+            className={`h-12 w-12 animate-spin rounded-full border-4 ${
+              isDarkMode
+                ? "border-zinc-700 border-t-zinc-100"
+                : "border-slate-300 border-t-teal-600"
+            }`}
+          />
+          <p
+            className={`text-lg ${
+              isDarkMode ? "text-zinc-400" : "text-slate-600"
+            }`}
+          >
+            Loading review...
+          </p>
         </div>
       </div>
     );
@@ -454,11 +497,33 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
 
   if (error) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
+      <div
+        className={`flex flex-1 items-center justify-center ${
+          isDarkMode ? "bg-black" : "bg-slate-50"
+        }`}
+      >
         <div className="w-full max-w-md px-6">
-          <div className="rounded-2xl border-2 border-red-500 bg-red-50 p-8 text-center dark:bg-red-950">
-            <h2 className="mb-2 text-xl font-semibold text-red-900 dark:text-red-200">Something went wrong</h2>
-            <p className="text-base text-red-800 dark:text-red-300">{error}</p>
+          <div
+            className={`rounded-2xl border-2 p-8 text-center ${
+              isDarkMode
+                ? "border-red-500/30 bg-red-500/10"
+                : "border-red-200 bg-red-50"
+            }`}
+          >
+            <h2
+              className={`mb-2 text-xl font-semibold ${
+                isDarkMode ? "text-red-200" : "text-red-900"
+              }`}
+            >
+              Something went wrong
+            </h2>
+            <p
+              className={`text-base ${
+                isDarkMode ? "text-red-300" : "text-red-800"
+              }`}
+            >
+              {error}
+            </p>
           </div>
         </div>
       </div>
@@ -471,14 +536,22 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
     interview?.status === "awaiting_review" ? "Awaiting Review" : interview?.status === "completed" ? "Completed" : interview?.status || "Unknown";
 
   return (
-    <div className="flex flex-1 items-start justify-center bg-zinc-50 py-10 dark:bg-black">
+    <div
+      className={`flex flex-1 items-start justify-center py-10 ${
+        isDarkMode ? "bg-black" : "bg-slate-50"
+      }`}
+    >
       <div className="w-full max-w-5xl px-6">
         <div className="flex flex-col gap-6">
           <div className="flex items-center justify-between">
             <button
               type="button"
               onClick={() => router.push("/doctor/dashboard")}
-              className="inline-flex items-center gap-2 rounded-lg border-2 border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 transition-colors hover:border-zinc-900 hover:bg-zinc-50 focus:ring-2 focus:ring-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-100 dark:hover:bg-zinc-800"
+              className={`inline-flex items-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-semibold transition-colors focus:ring-2 focus:outline-none ${
+                isDarkMode
+                  ? "border-zinc-700 bg-zinc-900 text-zinc-100 hover:border-zinc-100 hover:bg-zinc-800 focus:ring-zinc-500"
+                  : "border-slate-200 bg-white text-slate-900 hover:border-slate-900 hover:bg-slate-50 focus:ring-slate-300"
+              }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -489,64 +562,164 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
             <span
               className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium tracking-wide ${
                 interview?.status === "awaiting_review"
-                  ? "border-amber-500/30 bg-amber-500/20 text-amber-300"
-                  : "border-emerald-500/30 bg-emerald-500/20 text-emerald-300"
+                  ? isDarkMode
+                    ? "border-amber-500/30 bg-amber-500/20 text-amber-300"
+                    : "bg-amber-100 text-amber-700 font-medium border-amber-200"
+                  : isDarkMode
+                    ? "border-emerald-500/30 bg-emerald-500/20 text-emerald-300"
+                    : "bg-emerald-100 text-emerald-700 font-medium border-emerald-200"
               }`}
             >
               {statusLabel}
             </span>
           </div>
 
-          <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 shadow-2xl rounded-2xl p-6">
+          <div
+            className={`p-6 rounded-2xl shadow-2xl ${
+              isDarkMode
+                ? "bg-slate-900/60 backdrop-blur-xl border border-slate-700/50"
+                : "bg-white border border-slate-200 shadow-md"
+            }`}
+          >
             <div className="mb-4">
-              <h1 className="text-center text-3xl font-bold text-white">
+              <h1
+                className={`text-center text-3xl font-bold ${
+                  isDarkMode ? "text-white" : "text-slate-900"
+                }`}
+              >
                 Doctor Review
               </h1>
-              <p className="mt-2 text-center text-base text-slate-400">
+              <p
+                className={`mt-2 text-center text-base ${
+                  isDarkMode ? "text-slate-400" : "text-slate-600"
+                }`}
+              >
                 Review patient interview responses and uploaded documents.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-6">
               <div className="flex flex-col">
-                <p className="text-slate-400 text-xs tracking-widest uppercase">Patient</p>
-                <p className="text-white text-lg font-semibold">{patientName}</p>
+                <p
+                  className={`text-xs tracking-widest uppercase ${
+                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                  }`}
+                >
+                  Patient
+                </p>
+                <p
+                  className={`text-lg font-semibold ${
+                    isDarkMode ? "text-white" : "text-slate-900"
+                  }`}
+                >
+                  {patientName}
+                </p>
               </div>
-              <div className="h-8 w-px bg-slate-700" />
+              <div
+                className={`h-8 w-px ${
+                  isDarkMode ? "bg-slate-700" : "bg-slate-200"
+                }`}
+              />
               <div className="flex flex-col">
-                <p className="text-slate-400 text-xs tracking-widest uppercase">Age</p>
-                <p className="text-white text-lg font-semibold">{age !== null ? `${age} years` : "N/A"}</p>
+                <p
+                  className={`text-xs tracking-widest uppercase ${
+                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                  }`}
+                >
+                  Age
+                </p>
+                <p
+                  className={`text-lg font-semibold ${
+                    isDarkMode ? "text-white" : "text-slate-900"
+                  }`}
+                >
+                  {age !== null ? `${age} years` : "N/A"}
+                </p>
               </div>
-              <div className="h-8 w-px bg-slate-700" />
+              <div
+                className={`h-8 w-px ${
+                  isDarkMode ? "bg-slate-700" : "bg-slate-200"
+                }`}
+              />
               <div className="flex flex-col">
-                <p className="text-slate-400 text-xs tracking-widest uppercase">Gender</p>
-                <p className="text-white text-lg font-semibold">
+                <p
+                  className={`text-xs tracking-widest uppercase ${
+                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                  }`}
+                >
+                  Gender
+                </p>
+                <p
+                  className={`text-lg font-semibold ${
+                    isDarkMode ? "text-white" : "text-slate-900"
+                  }`}
+                >
                   {patient?.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : "N/A"}
                 </p>
               </div>
-              <div className="h-8 w-px bg-slate-700" />
+              <div
+                className={`h-8 w-px ${
+                  isDarkMode ? "bg-slate-700" : "bg-slate-200"
+                }`}
+              />
               <div className="flex flex-col">
-                <p className="text-slate-400 text-xs tracking-widest uppercase">Interview ID</p>
-                <p className="text-white text-lg font-semibold truncate">{interview?.id}</p>
+                <p
+                  className={`text-xs tracking-widest uppercase ${
+                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                  }`}
+                >
+                  Interview ID
+                </p>
+                <p
+                  className={`text-lg font-semibold truncate ${
+                    isDarkMode ? "text-white" : "text-slate-900"
+                  }`}
+                >
+                  {interview?.id}
+                </p>
               </div>
             </div>
           </div>
 
           {redFlags.length > 0 && (
-            <div className="relative overflow-hidden rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 shadow-[0_0_30px_rgba(244,63,94,0.15)] backdrop-blur-md">
-              <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent pointer-events-none" />
+            <div
+              className={`relative overflow-hidden rounded-2xl border p-6 shadow-md backdrop-blur-md ${
+                isDarkMode
+                  ? "border-rose-500/30 bg-rose-500/10 shadow-[0_0_30px_rgba(244,63,94,0.15)]"
+                  : "border-red-200 bg-red-50 shadow-sm"
+              }`}
+            >
+              {isDarkMode && (
+                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent pointer-events-none" />
+              )}
               <div className="relative flex items-start gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 shrink-0 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 shrink-0 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-rose-300">⚠️ Potential red flag detected — requires prompt clinical attention.</h3>
+                  <h3
+                    className={`text-lg font-bold ${
+                      isDarkMode ? "text-rose-300" : "text-red-700"
+                    }`}
+                  >
+                    ⚠️ Potential red flag detected — requires prompt clinical attention.
+                  </h3>
                   <ul className="mt-3 flex flex-col gap-2">
                     {redFlags.map((flag) => (
-                      <li key={flag.id} className="flex items-start gap-2 text-sm text-rose-200/90">
-                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400" />
-                        <span>
-                          <span className="font-semibold uppercase tracking-wide text-rose-300">{flag.severity}</span>
+                      <li key={flag.id} className="flex items-start gap-2 text-sm">
+                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
+                        <span
+                          className={
+                            isDarkMode ? "text-rose-200/90" : "text-red-800"
+                          }
+                        >
+                          <span
+                            className={`font-semibold uppercase tracking-wide ${
+                              isDarkMode ? "text-rose-300" : "text-red-700"
+                            }`}
+                          >
+                            {flag.severity}
+                          </span>
                           {" — "}
                           {flag.reason}
                         </span>
@@ -558,21 +731,39 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
             </div>
           )}
 
-          <div className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-slate-800/40 p-6 shadow-xl backdrop-blur-md">
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none" />
+          <div
+            className={`relative overflow-hidden rounded-2xl border p-6 shadow-xl backdrop-blur-md ${
+              isDarkMode
+                ? "border-indigo-500/30 bg-slate-800/40"
+                : "border-slate-200 bg-white shadow-sm"
+            }`}
+          >
+            {isDarkMode && (
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none" />
+            )}
             <div className="relative flex flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707-.707M12 21v-1m0-12V3m-6.364-1.636l.707-.707m-2.728 14.728l.707-.707" />
                   </svg>
-                  <h2 className="text-xl font-bold text-white">AI Clinical Summary</h2>
+                  <h2
+                    className={`text-xl font-bold ${
+                      isDarkMode ? "text-white" : "text-slate-900"
+                    }`}
+                  >
+                    AI Clinical Summary
+                  </h2>
                 </div>
                 <button
                   type="button"
                   onClick={handleGenerateAISummary}
                   disabled={isGeneratingSummary}
-                  className="inline-flex items-center gap-2 rounded-lg border border-indigo-500/40 bg-slate-900/60 px-3 py-1.5 text-sm font-semibold text-indigo-300 transition-all hover:border-indigo-400 hover:text-indigo-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition-all focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
+                    isDarkMode
+                      ? "border-indigo-500/40 bg-slate-900/60 text-indigo-300 hover:border-indigo-400 hover:text-indigo-200 focus:ring-indigo-500"
+                      : "border-teal-200 bg-white text-teal-700 hover:border-teal-400 hover:text-teal-800 focus:ring-teal-300"
+                  }`}
                 >
                   {isGeneratingSummary ? (
                     <>
@@ -590,7 +781,13 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
                 </button>
               </div>
 
-              <span className="self-start inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400">
+              <span
+                className={`self-start inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
+                  isDarkMode
+                    ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                    : "border-amber-200 bg-amber-100 text-amber-700"
+                }`}
+              >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
@@ -598,33 +795,115 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
               </span>
 
               {summaryError && (
-                <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
-                  <p className="text-sm text-red-400">{summaryError}</p>
+                <div
+                  className={`rounded-lg border p-3 ${
+                    isDarkMode
+                      ? "border-red-500/30 bg-red-500/10"
+                      : "border-red-200 bg-red-50"
+                  }`}
+                >
+                  <p
+                    className={`text-sm ${
+                      isDarkMode ? "text-red-400" : "text-red-700"
+                    }`}
+                  >
+                    {summaryError}
+                  </p>
                 </div>
               )}
 
               {aiSummaryData ? (
                 <div className="grid gap-4 md:grid-cols-2">
-                  <SummaryField label="Chief Complaint" value={aiSummaryData.chiefComplaint} source={aiSummaryData.evidenceMapping.chiefComplaintSource} />
-                  <SummaryField label="History of Present Illness" value={aiSummaryData.historyOfPresentIllness} source={aiSummaryData.evidenceMapping.historySource} />
-                  <SummaryField label="Medical History" value={aiSummaryData.medicalHistory} source={aiSummaryData.evidenceMapping.medicalHistorySource} />
-                  <SummaryField label="Medications" value={aiSummaryData.medications} source={aiSummaryData.evidenceMapping.medicationsSource} />
-                  <SummaryField label="Allergies" value={aiSummaryData.allergies} source={aiSummaryData.evidenceMapping.allergiesSource} />
-                  <SummaryField label="Red Flags Summary" value={aiSummaryData.redFlagsSummary} source={aiSummaryData.evidenceMapping.redFlagsSource} />
-                  <SummaryField label="Missing Info" value={aiSummaryData.missingInfo} source={aiSummaryData.evidenceMapping.missingInfoSource} className="md:col-span-2" />
-                  <div className="rounded-lg border border-white/5 bg-white/5 p-4 md:col-span-2">
+                  <SummaryField
+                    isDarkMode={isDarkMode}
+                    label="Chief Complaint"
+                    value={aiSummaryData.chiefComplaint}
+                    source={aiSummaryData.evidenceMapping.chiefComplaintSource}
+                  />
+                  <SummaryField
+                    isDarkMode={isDarkMode}
+                    label="History of Present Illness"
+                    value={aiSummaryData.historyOfPresentIllness}
+                    source={aiSummaryData.evidenceMapping.historySource}
+                  />
+                  <SummaryField
+                    isDarkMode={isDarkMode}
+                    label="Medical History"
+                    value={aiSummaryData.medicalHistory}
+                    source={aiSummaryData.evidenceMapping.medicalHistorySource}
+                  />
+                  <SummaryField
+                    isDarkMode={isDarkMode}
+                    label="Medications"
+                    value={aiSummaryData.medications}
+                    source={aiSummaryData.evidenceMapping.medicationsSource}
+                  />
+                  <SummaryField
+                    isDarkMode={isDarkMode}
+                    label="Allergies"
+                    value={aiSummaryData.allergies}
+                    source={aiSummaryData.evidenceMapping.allergiesSource}
+                  />
+                  <SummaryField
+                    isDarkMode={isDarkMode}
+                    label="Red Flags Summary"
+                    value={aiSummaryData.redFlagsSummary}
+                    source={aiSummaryData.evidenceMapping.redFlagsSource}
+                  />
+                  <SummaryField
+                    isDarkMode={isDarkMode}
+                    label="Missing Info"
+                    value={aiSummaryData.missingInfo}
+                    source={aiSummaryData.evidenceMapping.missingInfoSource}
+                    className="md:col-span-2"
+                  />
+                  <div
+                    className={`rounded-lg border p-4 md:col-span-2 ${
+                      isDarkMode
+                        ? "border-white/5 bg-white/5"
+                        : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">AI Clinical Summary</p>
-                      <span className="inline-flex items-center rounded-full border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-300">
+                      <p
+                        className={`text-xs font-semibold uppercase tracking-wider ${
+                          isDarkMode ? "text-slate-400" : "text-slate-500"
+                        }`}
+                      >
+                        AI Clinical Summary
+                      </p>
+                      <span
+                        className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                          isDarkMode
+                            ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300"
+                            : "border-teal-200 bg-teal-50 text-teal-700"
+                        }`}
+                      >
                         {aiSummaryData.evidenceMapping.aiSummarySource.replace(/_/g, " ")}
                       </span>
                     </div>
-                    <p className="mt-1 text-sm text-slate-200">{aiSummaryData.aiSummary}</p>
+                    <p
+                      className={`mt-1 text-sm ${
+                        isDarkMode ? "text-slate-200" : "text-slate-700"
+                      }`}
+                    >
+                      {aiSummaryData.aiSummary}
+                    </p>
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl border border-white/5 bg-white/5 p-8 text-center">
-                  <p className="text-slate-400">
+                <div
+                  className={`rounded-xl border p-8 text-center ${
+                    isDarkMode
+                      ? "border-white/5 bg-white/5"
+                      : "border-slate-200 bg-slate-50"
+                  }`}
+                >
+                  <p
+                    className={
+                      isDarkMode ? "text-slate-400" : "text-slate-600"
+                    }
+                  >
                     {isGeneratingSummary ? "Generating clinical summary..." : "No AI summary generated yet."}
                   </p>
                 </div>
@@ -632,32 +911,78 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md dark:border-white/5 dark:bg-white/5">
+          <div
+            className={`relative overflow-hidden rounded-2xl border p-8 shadow-2xl backdrop-blur-md ${
+              isDarkMode
+                ? "border-white/10 bg-white/5"
+                : "border-slate-200 bg-white shadow-md"
+            }`}
+          >
             <div className="mb-6 flex items-center gap-3">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Patient Medical Timeline</h2>
+              <h2
+                className={`text-2xl font-bold ${
+                  isDarkMode ? "text-zinc-50" : "text-slate-900"
+                }`}
+              >
+                Patient Medical Timeline
+              </h2>
             </div>
             <MedicalTimeline events={timelineEvents} />
           </div>
 
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md dark:border-white/5 dark:bg-white/5">
-            <h2 className="mb-6 text-2xl font-bold text-zinc-900 dark:text-zinc-50">Clinical Assessment</h2>
+          <div
+            className={`relative overflow-hidden rounded-2xl border p-8 shadow-2xl backdrop-blur-md ${
+              isDarkMode
+                ? "border-white/10 bg-white/5"
+                : "border-slate-200 bg-white shadow-md"
+            }`}
+          >
+            <h2
+              className={`mb-6 text-2xl font-bold ${
+                isDarkMode ? "text-zinc-50" : "text-slate-900"
+              }`}
+            >
+              Clinical Assessment
+            </h2>
 
             {answerGroups.length === 0 ? (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-12 text-center shadow-sm backdrop-blur-md dark:border-white/5 dark:bg-white/5">
-                <p className="text-lg text-zinc-600 dark:text-zinc-400">No answers recorded for this interview.</p>
+              <div
+                className={`rounded-xl border p-12 text-center shadow-sm backdrop-blur-md ${
+                  isDarkMode
+                    ? "border-white/10 bg-white/5"
+                    : "border-slate-200 bg-slate-50"
+                }`}
+              >
+                <p
+                  className={`text-lg ${
+                    isDarkMode ? "text-zinc-400" : "text-slate-600"
+                  }`}
+                >
+                  No answers recorded for this interview.
+                </p>
               </div>
             ) : (
               <div className="flex flex-col gap-8">
                 {answerGroups.map((group) => (
                   <div key={group.sectionTitle} className="flex flex-col gap-4">
                     <div className="flex items-center gap-3">
-                       <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs uppercase tracking-wider font-semibold text-emerald-400">
+                       <span
+                         className={`inline-flex items-center rounded-full border px-3 py-1 text-xs uppercase tracking-wider font-semibold ${
+                           isDarkMode
+                             ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                             : "border-teal-200 bg-teal-50 text-teal-700"
+                         }`}
+                       >
                         {group.sectionTitle}
                       </span>
-                      <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                      <span
+                        className={`text-sm ${
+                          isDarkMode ? "text-zinc-400" : "text-slate-500"
+                        }`}
+                      >
                         {group.items.length} {group.items.length === 1 ? "question" : "questions"}
                       </span>
                     </div>
@@ -666,15 +991,37 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
                       {group.items.map((item, idx) => (
                          <div
                            key={item.question.id}
-                           className="flex flex-col gap-2 bg-slate-800/40 rounded-xl p-5 border-l-4 border-emerald-500/70 hover:bg-slate-800/60 transition-colors"
+                           className={`flex flex-col gap-2 rounded-xl p-5 border-l-4 transition-colors ${
+                             isDarkMode
+                               ? "bg-slate-800/40 border-l-emerald-500/70 hover:bg-slate-800/60"
+                               : "bg-slate-50 border-l-teal-500 hover:bg-teal-50/50"
+                           }`}
                          >
                            <div className="flex items-start gap-3">
-                             <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+                             <span className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                               isDarkMode ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-700"
+                             }`}>
                                {idx + 1}
                              </span>
-                             <p className="text-slate-300">{item.question.text}</p>
+                             <p
+                               className={
+                                 isDarkMode ? "text-slate-300" : "text-slate-700"
+                               }
+                             >
+                               {item.question.text}
+                             </p>
                            </div>
-                           <p className={`pl-9 text-lg font-medium mt-2 ${item.answer.trim().length === 0 ? "italic text-zinc-500" : "text-white"}`}>
+                           <p
+                             className={`pl-9 text-lg font-medium mt-2 ${
+                               item.answer.trim().length === 0
+                                 ? isDarkMode
+                                   ? "italic text-zinc-500"
+                                   : "italic text-slate-400"
+                                 : isDarkMode
+                                   ? "text-white"
+                                   : "text-slate-900"
+                             }`}
+                           >
                              {item.answer.trim().length === 0 ? "No answer provided" : item.answer}
                            </p>
                          </div>
@@ -686,26 +1033,68 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
             )}
           </div>
 
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md dark:border-white/5 dark:bg-white/5">
-            <h2 className="mb-2 text-2xl font-bold text-zinc-900 dark:text-zinc-50">Uploaded Documents</h2>
-            <p className="mb-6 text-base text-zinc-600 dark:text-zinc-400">
+          <div
+            className={`relative overflow-hidden rounded-2xl border p-8 shadow-2xl backdrop-blur-md ${
+              isDarkMode
+                ? "border-white/10 bg-white/5"
+                : "border-slate-200 bg-white shadow-md"
+            }`}
+          >
+            <h2
+              className={`mb-2 text-2xl font-bold ${
+                isDarkMode ? "text-zinc-50" : "text-slate-900"
+              }`}
+            >
+              Uploaded Documents
+            </h2>
+            <p
+              className={`mb-6 text-base ${
+                isDarkMode ? "text-zinc-400" : "text-slate-600"
+              }`}
+            >
               The following documents are attached to this case.
             </p>
 
             {documents.length === 0 ? (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-12 text-center shadow-sm backdrop-blur-md dark:border-white/5 dark:bg-white/5">
-                <p className="text-lg text-zinc-600 dark:text-zinc-400">No documents uploaded for this interview.</p>
+              <div
+                className={`rounded-xl border p-12 text-center shadow-sm backdrop-blur-md ${
+                  isDarkMode
+                    ? "border-white/10 bg-white/5"
+                    : "border-slate-200 bg-slate-50"
+                }`}
+              >
+                <p
+                  className={`text-lg ${
+                    isDarkMode ? "text-zinc-400" : "text-slate-600"
+                  }`}
+                >
+                  No documents uploaded for this interview.
+                </p>
               </div>
             ) : (
               <ul className="flex flex-col gap-3">
                 {documents.map((doc) => (
                    <li
                      key={doc.id}
-                     className="flex items-center justify-between gap-3 rounded-xl border-2 border-zinc-200 bg-zinc-50 p-4 transition-all duration-200 hover:border-indigo-500/40 hover:bg-slate-800/40 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:border-indigo-500/40 dark:hover:bg-slate-800/40"
+                     className={`flex items-center justify-between gap-3 rounded-xl border-2 p-4 transition-all duration-200 ${
+                       isDarkMode
+                         ? "border-zinc-700 bg-zinc-800 hover:border-indigo-500/40 hover:bg-slate-800/40"
+                         : "border-slate-200 bg-zinc-50 hover:border-indigo-500/40 hover:bg-teal-50/30"
+                     }`}
                    >
                     <div className="flex flex-col">
-                      <span className="truncate text-base font-medium text-zinc-900 dark:text-zinc-50">{doc.file_name}</span>
-                      <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                      <span
+                        className={`truncate text-base font-medium ${
+                          isDarkMode ? "text-zinc-50" : "text-slate-900"
+                        }`}
+                      >
+                        {doc.file_name}
+                      </span>
+                      <span
+                        className={`text-sm ${
+                          isDarkMode ? "text-zinc-400" : "text-slate-500"
+                        }`}
+                      >
                         {(doc.size / 1024 / 1024).toFixed(2)} MB
                       </span>
                     </div>
@@ -713,7 +1102,11 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
                        <button
                          type="button"
                          onClick={() => handleViewDocument(doc.file_path)}
-                         className="inline-flex items-center gap-1 rounded-lg border border-indigo-500/40 bg-slate-900/60 px-3 py-1.5 text-sm font-semibold text-indigo-300 transition-all duration-200 hover:border-indigo-400 hover:text-indigo-200 hover:shadow-[0_0_10px_rgba(99,102,241,0.3)] focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                         className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-semibold transition-all duration-200 focus:ring-2 focus:outline-none ${
+                           isDarkMode
+                             ? "border-indigo-500/40 bg-slate-900/60 text-indigo-300 hover:border-indigo-400 hover:text-indigo-200 hover:shadow-[0_0_10px_rgba(99,102,241,0.3)] focus:ring-indigo-500"
+                             : "border-teal-200 bg-white text-teal-700 hover:border-teal-400 hover:text-teal-800 focus:ring-teal-300"
+                         }`}
                        >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -721,7 +1114,13 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
                         </svg>
                         View Original
                       </button>
-                      <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">{doc.status}</span>
+                      <span
+                        className={`text-sm font-semibold ${
+                          isDarkMode ? "text-emerald-400" : "text-emerald-700"
+                        }`}
+                      >
+                        {doc.status}
+                      </span>
                     </div>
                   </li>
                 ))}
@@ -729,172 +1128,410 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
             )}
           </div>
 
-<div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-slate-800/50 to-slate-900/80 border border-indigo-500/30 p-8 shadow-inner">
-            {aiResult ? (
-              <div className="space-y-6 animate-fade-in">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">AI Extraction Results</h3>
-                  <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">Completed</span>
-                </div>
+<div
+  className={`relative overflow-hidden rounded-2xl p-8 shadow-inner ${
+    isDarkMode
+      ? "bg-gradient-to-b from-slate-800/50 to-slate-900/80 border border-indigo-500/30"
+      : "border border-slate-200 bg-white shadow-sm"
+  }`}
+>
+  {isDarkMode && (
+    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none" />
+  )}
+  <div className="relative">
+  {aiResult ? (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <h3
+          className={`text-xl font-bold ${
+            isDarkMode ? "text-zinc-50" : "text-slate-900"
+          }`}
+        >
+          AI Extraction Results
+        </h3>
+        <span
+          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
+            isDarkMode
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+              : "border-emerald-200 bg-emerald-100 text-emerald-700"
+          }`}
+        >
+          Completed
+        </span>
+      </div>
 
-                <div className="grid gap-6 md:grid-cols-2">
-                  <section className="space-y-4">
-                    <h4 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Structured Data
-                    </h4>
+      <div className="grid gap-6 md:grid-cols-2">
+        <section className="space-y-4">
+          <h4
+            className={`flex items-center gap-2 text-sm font-semibold uppercase tracking-wider ${
+              isDarkMode ? "text-slate-400" : "text-slate-500"
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Structured Data
+          </h4>
 
-                    {aiResult.structured_data.tests.length > 0 && (
-                      <div className="space-y-3">
-                        <h5 className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Lab Tests</h5>
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-sm backdrop-blur-md dark:border-white/5 dark:bg-white/5 overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b border-white/10">
-                                <th className="text-left py-2 px-3 font-semibold text-slate-400">Test Name</th>
-                                <th className="text-left py-2 px-3 font-semibold text-slate-400">Date</th>
-                                <th className="text-left py-2 px-3 font-semibold text-slate-400">Result</th>
-                                <th className="text-left py-2 px-3 font-semibold text-slate-400">Reference Range</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                              {aiResult.structured_data.tests.map((test, idx) => (
-                                <tr key={idx} className="hover:bg-white/5 transition-colors">
-                                  <td className="py-2 px-3 text-white">{test.name}</td>
-                                  <td className="py-2 px-3 text-slate-400">{test.date || "—"}</td>
-                                  <td className="py-2 px-3 text-white">{test.result || "—"}</td>
-                                  <td className="py-2 px-3 text-slate-400">{test.reference_range || "—"}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-
-                    {aiResult.structured_data.medications.length > 0 && (
-                      <div className="space-y-3">
-                        <h5 className="text-xs font-semibold uppercase tracking-wider text-indigo-400">Medications</h5>
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-sm backdrop-blur-md dark:border-white/5 dark:bg-white/5">
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            {aiResult.structured_data.medications.map((med, idx) => (
-                              <div key={idx} className="rounded-lg border border-white/10 bg-white/5 p-3">
-                                <p className="font-medium text-white">{med.name}</p>
-                                <p className="text-xs text-slate-400">{med.dosage || "Dosage not specified"}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {aiResult.structured_data.diagnoses.length > 0 && (
-                      <div className="space-y-3">
-                        <h5 className="text-xs font-semibold uppercase tracking-wider text-amber-400">Diagnoses</h5>
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-sm backdrop-blur-md dark:border-white/5 dark:bg-white/5">
-                          <ul className="space-y-2">
-                            {aiResult.structured_data.diagnoses.map((diag, idx) => (
-                              <li key={idx} className="flex items-center gap-2 text-sm text-white">
-                                <span className="h-2 w-2 rounded-full bg-amber-400" />
-                                {diag}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    )}
-
-                    {(aiResult.structured_data.tests.length === 0 &&
-                      aiResult.structured_data.medications.length === 0 &&
-                      aiResult.structured_data.diagnoses.length === 0) && (
-                      <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center shadow-sm backdrop-blur-md dark:border-white/5 dark:bg-white/5">
-                        <p className="text-slate-400">No structured clinical data detected in this document.</p>
-                      </div>
-                    )}
-                  </section>
-
-                  <section className="space-y-4 md:col-span-2">
-                    <h4 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                      </svg>
-                      Raw OCR Text
-                    </h4>
-                    <div className="rounded-xl border border-white/10 bg-zinc-900/50 p-4 font-mono text-xs text-slate-300 max-h-96 overflow-y-auto whitespace-pre-wrap">
-                      {aiResult.extracted_text || "No text extracted"}
-                    </div>
-                  </section>
-                </div>
-
-                <div className="rounded-xl border-2 border-amber-500/30 bg-amber-500/10 p-4">
-                  <p className="flex items-start gap-2 text-sm font-medium text-amber-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <span>⚠️ OCR/AI extraction is not medically verified truth. Always verify with the source document.</span>
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-4 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900 text-2xl font-bold text-white shadow-lg dark:bg-zinc-100 dark:text-zinc-900">
-                  AI
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Document AI Analysis</h3>
-                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                    Extract structured clinical data from uploaded documents using AI.
-                  </p>
-                </div>
-                {aiError && (
-                  <div className="w-full max-w-md rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-left">
-                    <p className="text-sm text-red-400">{aiError}</p>
-                  </div>
-                )}
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  {documents.map((doc) => (
-                    <button
-                      key={doc.id}
-                      type="button"
-                      onClick={() => handleRunExtraction(doc)}
-                      disabled={isExtracting}
-                      className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 px-6 py-3 font-bold text-white shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-transform hover:scale-105 focus:ring-2 focus:ring-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          {aiResult.structured_data.tests.length > 0 && (
+            <div className="space-y-3">
+              <h5
+                className={`text-xs font-semibold uppercase tracking-wider ${
+                  isDarkMode ? "text-indigo-400" : "text-teal-700"
+                }`}
+              >
+                Lab Tests
+              </h5>
+              <div
+                className={`rounded-xl border overflow-x-auto ${
+                  isDarkMode
+                    ? "border-white/10 bg-white/5 shadow-sm backdrop-blur-md"
+                    : "border-slate-200 bg-slate-50 shadow-sm"
+                }`}
+              >
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr
+                      className={`border-b ${
+                        isDarkMode ? "border-white/10" : "border-slate-200"
+                      }`}
                     >
-                      {isExtracting ? (
-                        <>
-                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          Analyzing Document...
-                        </>
-                      ) : (
-                        <>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          Run OCR Extraction
-                        </>
-                      )}
-                    </button>
+                      <th
+                        className={`text-left py-2 px-3 font-semibold ${
+                          isDarkMode ? "text-slate-400" : "text-slate-500"
+                        }`}
+                      >
+                        Test Name
+                      </th>
+                      <th
+                        className={`text-left py-2 px-3 font-semibold ${
+                          isDarkMode ? "text-slate-400" : "text-slate-500"
+                        }`}
+                      >
+                        Date
+                      </th>
+                      <th
+                        className={`text-left py-2 px-3 font-semibold ${
+                          isDarkMode ? "text-slate-400" : "text-slate-500"
+                        }`}
+                      >
+                        Result
+                      </th>
+                      <th
+                        className={`text-left py-2 px-3 font-semibold ${
+                          isDarkMode ? "text-slate-400" : "text-slate-500"
+                        }`}
+                      >
+                        Reference Range
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    className={`divide-y ${
+                      isDarkMode ? "divide-white/5" : "divide-slate-100"
+                    }`}
+                  >
+                    {aiResult.structured_data.tests.map((test, idx) => (
+                      <tr
+                        key={idx}
+                        className={`transition-colors ${
+                          isDarkMode ? "hover:bg-white/5" : "hover:bg-slate-100"
+                        }`}
+                      >
+                        <td
+                          className={`py-2 px-3 ${
+                            isDarkMode ? "text-white" : "text-slate-900"
+                          }`}
+                        >
+                          {test.name}
+                        </td>
+                        <td
+                          className={`py-2 px-3 ${
+                            isDarkMode ? "text-slate-400" : "text-slate-500"
+                          }`}
+                        >
+                          {test.date || "—"}
+                        </td>
+                        <td
+                          className={`py-2 px-3 ${
+                            isDarkMode ? "text-white" : "text-slate-900"
+                          }`}
+                        >
+                          {test.result || "—"}
+                        </td>
+                        <td
+                          className={`py-2 px-3 ${
+                            isDarkMode ? "text-slate-400" : "text-slate-500"
+                          }`}
+                        >
+                          {test.reference_range || "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {aiResult.structured_data.medications.length > 0 && (
+            <div className="space-y-3">
+              <h5
+                className={`text-xs font-semibold uppercase tracking-wider ${
+                  isDarkMode ? "text-indigo-400" : "text-teal-700"
+                }`}
+              >
+                Medications
+              </h5>
+              <div
+                className={`rounded-xl border p-4 shadow-sm backdrop-blur-md ${
+                  isDarkMode
+                    ? "border-white/10 bg-white/5"
+                    : "border-slate-200 bg-slate-50"
+                }`}
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {aiResult.structured_data.medications.map((med, idx) => (
+                    <div
+                      key={idx}
+                      className={`rounded-lg border p-3 ${
+                        isDarkMode
+                          ? "border-white/10 bg-white/5"
+                          : "border-slate-200 bg-white"
+                      }`}
+                    >
+                      <p
+                        className={`font-medium ${
+                          isDarkMode ? "text-white" : "text-slate-900"
+                        }`}
+                      >
+                        {med.name}
+                      </p>
+                      <p
+                        className={`text-xs ${
+                          isDarkMode ? "text-slate-400" : "text-slate-500"
+                        }`}
+                      >
+                        {med.dosage || "Dosage not specified"}
+                      </p>
+                    </div>
                   ))}
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-md dark:border-white/5 dark:bg-white/5">
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none" />
+          {aiResult.structured_data.diagnoses.length > 0 && (
+            <div className="space-y-3">
+              <h5
+                className={`text-xs font-semibold uppercase tracking-wider ${
+                  isDarkMode ? "text-amber-400" : "text-amber-700"
+                }`}
+              >
+                Diagnoses
+              </h5>
+              <div
+                className={`rounded-xl border p-4 shadow-sm backdrop-blur-md ${
+                  isDarkMode
+                    ? "border-white/10 bg-white/5"
+                    : "border-slate-200 bg-slate-50"
+                }`}
+              >
+                <ul className="space-y-2">
+                  {aiResult.structured_data.diagnoses.map((diag, idx) => (
+                    <li
+                      key={idx}
+                      className={`flex items-center gap-2 text-sm ${
+                        isDarkMode ? "text-white" : "text-slate-800"
+                      }`}
+                    >
+                      <span className="h-2 w-2 rounded-full bg-amber-500" />
+                      {diag}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {(aiResult.structured_data.tests.length === 0 &&
+            aiResult.structured_data.medications.length === 0 &&
+            aiResult.structured_data.diagnoses.length === 0) && (
+            <div
+              className={`rounded-xl border p-8 text-center shadow-sm backdrop-blur-md ${
+                isDarkMode
+                  ? "border-white/10 bg-white/5"
+                  : "border-slate-200 bg-slate-50"
+              }`}
+            >
+              <p
+                className={
+                  isDarkMode ? "text-slate-400" : "text-slate-600"
+                }
+              >
+                No structured clinical data detected in this document.
+              </p>
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4 md:col-span-2">
+          <h4
+            className={`flex items-center gap-2 text-sm font-semibold uppercase tracking-wider ${
+              isDarkMode ? "text-slate-400" : "text-slate-500"
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            Raw OCR Text
+          </h4>
+          <div
+            className={`rounded-xl border p-4 font-mono text-xs whitespace-pre-wrap max-h-96 overflow-y-auto ${
+              isDarkMode
+                ? "border-white/10 bg-zinc-900/50 text-slate-300"
+                : "border-slate-200 bg-slate-50 text-slate-700"
+            }`}
+          >
+            {aiResult.extracted_text || "No text extracted"}
+          </div>
+        </section>
+      </div>
+
+      <div
+        className={`rounded-xl border-2 p-4 ${
+          isDarkMode
+            ? "border-amber-500/30 bg-amber-500/10"
+            : "border-amber-200 bg-amber-50"
+        }`}
+      >
+        <p
+          className={`flex items-start gap-2 text-sm font-medium ${
+            isDarkMode ? "text-amber-400" : "text-amber-700"
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span>⚠️ OCR/AI extraction is not medically verified truth. Always verify with the source document.</span>
+        </p>
+      </div>
+    </div>
+  ) : (
+    <div className="flex flex-col items-center justify-center gap-4 text-center">
+      <div
+        className={`flex h-14 w-14 items-center justify-center rounded-2xl text-2xl font-bold shadow-lg ${
+          isDarkMode
+            ? "bg-zinc-100 text-zinc-900"
+            : "bg-slate-800 text-white"
+        }`}
+      >
+        AI
+      </div>
+      <div>
+        <h3
+          className={`text-xl font-bold ${
+            isDarkMode ? "text-zinc-50" : "text-slate-900"
+          }`}
+        >
+          Document AI Analysis
+        </h3>
+        <p
+          className={`mt-1 text-sm ${
+            isDarkMode ? "text-zinc-400" : "text-slate-600"
+          }`}
+        >
+          Extract structured clinical data from uploaded documents using AI.
+        </p>
+      </div>
+      {aiError && (
+        <div
+          className={`w-full max-w-md rounded-lg border p-4 text-left ${
+            isDarkMode
+              ? "border-red-500/30 bg-red-500/10"
+              : "border-red-200 bg-red-50"
+          }`}
+        >
+          <p
+            className={`text-sm ${
+              isDarkMode ? "text-red-400" : "text-red-700"
+            }`}
+          >
+            {aiError}
+          </p>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        {documents.map((doc) => (
+          <button
+            key={doc.id}
+            type="button"
+            onClick={() => handleRunExtraction(doc)}
+            disabled={isExtracting}
+            className={`inline-flex items-center gap-2 rounded-xl px-6 py-3 font-bold text-white transition-transform focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
+              isDarkMode
+                ? "bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:scale-105 focus:ring-indigo-400"
+                : "bg-teal-600 hover:bg-teal-700 shadow-sm hover:scale-105 focus:ring-teal-300"
+            }`}
+          >
+            {isExtracting ? (
+              <>
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Analyzing Document...
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Run OCR Extraction
+              </>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  )}
+  </div>
+</div>
+
+          <div
+            className={`relative overflow-hidden rounded-2xl border p-6 shadow-2xl backdrop-blur-md ${
+              isDarkMode
+                ? "border-white/10 bg-white/5"
+                : "border-slate-200 bg-white shadow-md"
+            }`}
+          >
+            {isDarkMode && (
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none" />
+            )}
             <div className="relative flex flex-col gap-5">
               <div>
-                <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Clinical Sign-off &amp; Decision</h2>
-                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                <h2
+                  className={`text-xl font-bold ${
+                    isDarkMode ? "text-zinc-50" : "text-slate-900"
+                  }`}
+                >
+                  Clinical Sign-off &amp; Decision
+                </h2>
+                <p
+                  className={`mt-1 text-sm ${
+                    isDarkMode ? "text-zinc-400" : "text-slate-600"
+                  }`}
+                >
                   Review complete. Provide clinical notes and finalize case disposition.
                 </p>
               </div>
 
               {submitSuccess ? (
-                <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-200">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <div
+                  className={`flex items-center gap-3 rounded-xl border p-4 ${
+                    isDarkMode
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                      : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15l2.55-2.55L15 14.25l-3.75 3.75L7.5 15z" />
                     <circle cx={12} cy={12} r={9} />
                   </svg>
@@ -903,7 +1540,12 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
               ) : (
                 <>
                   <div>
-                    <label htmlFor="doctor-notes" className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <label
+                      htmlFor="doctor-notes"
+                      className={`block text-xs font-semibold uppercase tracking-wider ${
+                        isDarkMode ? "text-slate-400" : "text-slate-500"
+                      }`}
+                    >
                       Doctor Clinical Notes / Prescription
                     </label>
                     <textarea
@@ -913,13 +1555,29 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
                       disabled={isSubmitting}
                       rows={5}
                       placeholder="Enter clinical notes, prescriptions, key findings, or revision requests."
-                      className="mt-2 w-full resize-y rounded-xl border border-white/10 bg-zinc-900/50 p-4 text-sm text-zinc-100 placeholder-zinc-500 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:cursor-not-allowed dark:bg-zinc-800/50 dark:text-zinc-100"
+                      className={`mt-2 w-full resize-y rounded-xl border p-4 text-sm placeholder-slate-400 focus:outline-none disabled:cursor-not-allowed ${
+                        isDarkMode
+                          ? "border-white/10 bg-zinc-900/50 text-zinc-100 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500"
+                          : "border-slate-200 bg-white text-slate-900 focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500"
+                      }`}
                     />
                   </div>
 
                   {submitError && (
-                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
-                      <p className="text-sm text-red-400">{submitError}</p>
+                    <div
+                      className={`rounded-lg border p-3 ${
+                        isDarkMode
+                          ? "border-red-500/30 bg-red-500/10"
+                          : "border-red-200 bg-red-50"
+                      }`}
+                    >
+                      <p
+                        className={`text-sm ${
+                          isDarkMode ? "text-red-400" : "text-red-700"
+                        }`}
+                      >
+                        {submitError}
+                      </p>
                     </div>
                   )}
 
@@ -928,7 +1586,11 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
                       type="button"
                       onClick={() => handleDoctorAction("approved")}
                       disabled={isSubmitting}
-                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3 font-bold text-white shadow-[0_0_20px_rgba(16,185,129,0.4)] transition transform hover:scale-[1.02] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] focus:ring-2 focus:ring-emerald-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                      className={`inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-3 font-bold text-white transition-all shadow-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
+                        isDarkMode
+                          ? "bg-gradient-to-r from-emerald-500 to-emerald-600 shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:from-emerald-400 hover:to-emerald-500 hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] focus:ring-emerald-400"
+                          : "bg-teal-600 hover:bg-teal-700 focus:ring-teal-500"
+                      }`}
                     >
                       {isSubmitting ? (
                         <>
@@ -949,7 +1611,11 @@ export default function DoctorReviewPage({ interviewId }: { interviewId: string 
                       type="button"
                       onClick={() => handleDoctorAction("rejected")}
                       disabled={isSubmitting}
-                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-6 py-3 font-bold text-white shadow-[0_0_20px_rgba(244,63,94,0.4)] transition transform hover:scale-[1.02] hover:shadow-[0_0_25px_rgba(244,63,94,0.5)] focus:ring-2 focus:ring-rose-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                      className={`inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-3 font-bold text-white transition-all shadow-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
+                        isDarkMode
+                          ? "bg-gradient-to-r from-rose-500 to-rose-600 shadow-[0_0_20px_rgba(244,63,94,0.4)] hover:from-rose-400 hover:to-rose-500 hover:shadow-[0_0_25px_rgba(244,63,94,0.5)] focus:ring-rose-400"
+                          : "bg-red-600 hover:bg-red-700 focus:ring-red-500"
+                      }`}
                     >
                       {isSubmitting ? (
                         <>

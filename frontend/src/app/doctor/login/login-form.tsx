@@ -10,7 +10,11 @@ type FormErrors = {
   general?: string;
 };
 
-export default function DoctorLoginForm() {
+type Props = {
+  isDarkMode: boolean;
+};
+
+export default function DoctorLoginForm({ isDarkMode }: Props) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -70,7 +74,11 @@ export default function DoctorLoginForm() {
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
       {errors.general && (
         <div
-          className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200"
+          className={`rounded-lg border p-4 text-sm ${
+            isDarkMode
+              ? "border-red-500/40 bg-red-500/10 text-red-200"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
           role="alert"
         >
           {errors.general}
@@ -80,7 +88,7 @@ export default function DoctorLoginForm() {
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="email"
-          className="text-sm font-medium text-zinc-300"
+          className={`text-sm font-medium ${isDarkMode ? "text-zinc-300" : "text-slate-700"}`}
         >
           Email
         </label>
@@ -90,23 +98,29 @@ export default function DoctorLoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={isLoading}
-          className={`h-12 rounded-xl border bg-black/40 px-4 text-base text-zinc-100 outline-none transition-colors disabled:opacity-50 placeholder-zinc-500 ${
+          className={`h-12 rounded-xl border px-4 text-base outline-none transition-colors disabled:opacity-50 placeholder-slate-400 ${
+            isDarkMode
+              ? "border-white/10 bg-black/40 text-zinc-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+              : "border-slate-200 bg-white text-slate-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+          } ${
             errors.email
-              ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-              : "border-white/10 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+              ? isDarkMode
+                ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                : "border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+              : ""
           }`}
           placeholder="you@hospital.com"
           autoComplete="email"
         />
         {errors.email && (
-          <p className="text-sm text-red-400">{errors.email}</p>
+          <p className={`text-sm ${isDarkMode ? "text-red-400" : "text-red-600"}`}>{errors.email}</p>
         )}
       </div>
 
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="password"
-          className="text-sm font-medium text-zinc-300"
+          className={`text-sm font-medium ${isDarkMode ? "text-zinc-300" : "text-slate-700"}`}
         >
           Password
         </label>
@@ -116,23 +130,33 @@ export default function DoctorLoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={isLoading}
-          className={`h-12 rounded-xl border bg-black/40 px-4 text-base text-zinc-100 outline-none transition-colors disabled:opacity-50 placeholder-zinc-500 ${
+          className={`h-12 rounded-xl border px-4 text-base outline-none transition-colors disabled:opacity-50 placeholder-slate-400 ${
+            isDarkMode
+              ? "border-white/10 bg-black/40 text-zinc-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+              : "border-slate-200 bg-white text-slate-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+          } ${
             errors.password
-              ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-              : "border-white/10 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+              ? isDarkMode
+                ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                : "border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+              : ""
           }`}
           placeholder="Enter your password"
           autoComplete="current-password"
         />
         {errors.password && (
-          <p className="text-sm text-red-400">{errors.password}</p>
+          <p className={`text-sm ${isDarkMode ? "text-red-400" : "text-red-600"}`}>{errors.password}</p>
         )}
       </div>
 
       <button
         type="submit"
         disabled={isLoading}
-        className="mt-2 flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-base font-semibold text-white shadow-[0_0_20px_rgba(99,102,241,0.35)] transition-all duration-300 hover:from-indigo-400 hover:to-purple-500 hover:shadow-[0_0_25px_rgba(99,102,241,0.45)] disabled:cursor-not-allowed disabled:opacity-70 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+        className={`mt-2 flex h-12 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-70 focus:ring-2 focus:outline-none ${
+          isDarkMode
+            ? "bg-gradient-to-r from-indigo-500 to-purple-600 shadow-[0_0_20px_rgba(99,102,241,0.35)] hover:from-indigo-400 hover:to-purple-500 hover:shadow-[0_0_25px_rgba(99,102,241,0.45)] focus:ring-indigo-400"
+            : "bg-teal-600 hover:bg-teal-700 shadow-sm focus:ring-teal-500"
+        }`}
       >
         {isLoading ? "Signing in..." : "Login"}
       </button>
